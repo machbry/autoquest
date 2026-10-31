@@ -17,8 +17,18 @@ Life is full of quests!
 
 ```
 autoquest/
-└── apps/        # one folder per app
+├── apps/        # one folder per app
+├── libs/        # shared Python packages
+├── infra/       # shared Terraform (bootstrap, modules, shared resources)
+└── scripts/     # dev tooling
 ```
+
+## Local setup
+
+Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [uv](https://docs.astral.sh/uv/).
+Each app's README explains how to set it up and run it.
+
+Development guidelines are in [CLAUDE.md](CLAUDE.md).
 
 ## License
 
