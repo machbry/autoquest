@@ -11,8 +11,8 @@ eventually auto-labelling that I only validate.
 
 ## What the analysis must answer
 1. **Where my money goes:** spending per category per month, across all accounts, counting
-   *my share* of shared costs (rent paid 100%, owned 50%).
-2. **Savings rate:** income minus real spending. Transfers to savings, PEA or life insurance
+   *my share* of shared costs (rent paid 100%, owed 50%).
+2. **Savings rate:** (income − real spending) / income. Transfers to savings, PEA or life insurance
    count as saved, not spent.
 3. **Net worth trend:** total value of all accounts over time, including closed ones while
    they were open.
@@ -91,10 +91,13 @@ Decided: first slice ("Now") = items 1, 2 and 4 for the Banque Postale current a
 5. *Exports happen within 90 days.* Mitigated by the freshness indicator.
 
 ## Open questions
-- Labelling flow: where and on which device (decide in the spec).
+- ~~Labelling flow: where and on which device~~ Resolved in
+  [#13](https://github.com/machbry/autoquest/issues/13): desktop browser, keyboard only.
 - Fortuneo PEA: CSV export available?
-- Category vs tag split: confirm.
+- ~~Category vs tag split~~ Confirmed in [#13](https://github.com/machbry/autoquest/issues/13):
+  categories are the type of expense, context goes in tags.
 
 ## Next steps
-`/roadmap-update` to write Now/Next/Later in the app README, then `/write-spec` for the first
-slice.
+Done: roadmap in the [app README](../README.md), specs
+[#12](https://github.com/machbry/autoquest/issues/12) and
+[#13](https://github.com/machbry/autoquest/issues/13).
