@@ -13,7 +13,7 @@ all accounts since end 2024, for under 30 minutes of upkeep a month.
 |---|---|---|---|
 | Now | Accounts + Banque Postale current-account CSV import (dedup, freshness indicator) | High-volume account; 90-day CSV window loses data if missed | [#12](https://github.com/machbry/autoquest/issues/12) |
 | Now | Labelling flow: categories, tags, "same as last time" suggestions, review queue | Labels are the core of every answer and the future training set | [#13](https://github.com/machbry/autoquest/issues/13) |
-| Now | Deploy to prd: private Cloud Run, durable SQLite | Required before Next; data survives a laptop loss | [#14](https://github.com/machbry/autoquest/issues/14) |
+| Now | Deploy: private, in the cloud, durable data | Required before Next; data survives a laptop loss | [#14](https://github.com/machbry/autoquest/issues/14) |
 | Next | Monthly analysis: spending by category, savings rate, net worth | Turns labels into the objective's answers | |
 | Next | Internal transfer detection | Without it, transfers inflate spending and distort savings rate | |
 | Next | Manual operations and balances (Goodvest, cash, corrections) | Completes net worth; balances check import completeness | |
