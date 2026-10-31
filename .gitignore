@@ -5,24 +5,41 @@
 *.pem
 *.key
 
-# Personal data exports (bank statements, broker reports...)
+# Personal data: real bank exports go in data/ only (CSV, PDF...); local databases
+data/
 *.ofx
 *.qif
-data/
+*.duckdb
+*.duckdb.wal
+*.sqlite
+*.sqlite3
+*.db
 
-# Dependencies
-node_modules/
+# Terraform (state can hold secrets)
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.tfplan
+
+# Python
 .venv/
 venv/
 __pycache__/
 *.pyc
-
-# Build output
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
 dist/
 build/
-out/
-.next/
-coverage/
+
+# dbt
+target/
+dbt_packages/
 
 # Logs
 *.log
