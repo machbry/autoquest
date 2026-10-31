@@ -58,13 +58,19 @@ Metric, target, how and when it's measured.
 Data touched, external inputs to validate, secrets, exposure (CLAUDE.md checklist).
 
 ## Cost
-Services used and why it stays at €0 (free tier, quotas).
+Expected cost constraint (€0) and what could incur charges.
 
 ## Open questions
 Tag each as blocking or non-blocking.
 ```
 
 ## Guidance
+
+**No solutions.** An issue states needs and constraints, never the implementation: no
+services, providers, databases, libraries, schemas or algorithms. The how is decided in the
+PR. Real technical constraints are fine (€0, privacy, the file format received). For work
+that creates infrastructure, add an acceptance criterion asking for a justified cost estimate
+of the chosen solution.
 
 **Goals** are outcomes: "categorize a month of transactions in under 5 minutes", not "build a
 categorization screen".
