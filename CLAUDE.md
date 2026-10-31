@@ -14,7 +14,9 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
   A manual step is a last resort and is documented with the reason it can't be automated.
 - **Secure by default.** Every feature goes through the security checklist below.
 - **No AI in production.** LLMs and coding agents may help develop the code or label data for
-  ML training. No production feature may depend on an LLM.
+  ML training. No production feature may depend on an LLM. An app may expose an optional
+  agent interface (e.g. an MCP server) as long as every user journey works without it; using
+  it sends data to the LLM provider, so the spec states what is exposed.
 - **Concise docs.** Comments explain *why*, not *what*. Docs are short and updated in the same
   PR as the code.
 
