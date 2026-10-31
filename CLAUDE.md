@@ -76,6 +76,8 @@ Rules:
 ## Git workflow
 - `main` is protected: changes go through a PR, CI must pass, no force push.
 - One PR per concern, ideally scoped to one app.
+- Use the GitHub MCP server for GitHub operations (issues, PRs, labels, reviews), not the
+  `gh` CLI.
 - **Branches:** `<type>/<scope>/<short-description>`, lowercase kebab-case, e.g.
   `feat/banking/import-ofx`, `fix/infra/state-bucket-iam`. Add the issue number if there
   is one: `feat/banking/12-import-ofx`.
