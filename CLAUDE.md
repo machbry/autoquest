@@ -7,8 +7,8 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
 - **Keep it simple.** Build the smallest thing that works. No speculative abstractions, no
   premature generalization. Simplify whenever possible: deleting code is a feature.
 - **Sobriety.** Keep CPU, memory, storage, network and dependency use low.
-- **Zero cost.** Running the apps must cost €0: use GCP free tiers (other providers' free tiers
-  only if GCP has none). Scale to zero, cap quotas, and set budget alerts. Flag any design
+- **Zero cost.** Running the apps must cost €0: use GCP or GitHub free tiers (other providers'
+  free tiers only if neither has one). Scale to zero, cap quotas, and set budget alerts. Flag any design
   that could cost money.
 - **Everything as code.** Infra, config, DB schema, seed data, CI/CD and repo settings are code.
   A manual step is a last resort and is documented with the reason it can't be automated.
@@ -23,9 +23,12 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
 ## Tech stack
 - **Languages:** Python 3.12+ and SQL. Another language only when Python isn't a reasonable fit;
   justify it in the PR.
-- **Cloud:** GCP. Prefer serverless, free-tier services (Cloud Run, Cloud Run jobs, Cloud
-  Scheduler, Cloud Storage, BigQuery, Firestore, Secret Manager). Note: Cloud SQL has no free
-  tier; pick each app's database with that in mind.
+- **Cloud:** GCP and GitHub. Prefer serverless, free-tier services: on GCP, Cloud Run,
+  Cloud Run jobs, Cloud Scheduler, Cloud Storage, BigQuery, Firestore, Secret Manager;
+  on GitHub, Actions workflows (scheduled or on-demand jobs) and artifacts (mind
+  retention limits).
+- **Database:** file-based databases preferred (DuckDB, SQLite).
+- **Data pipelines:** dbt for data transformations.
 - **IaC:** Terraform, with remote state in a GCS bucket.
 - **Python tooling:** uv (workspace and lockfile), pytest, Black, ruff.
 - **Local runtime:** Docker and Docker Compose.
