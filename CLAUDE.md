@@ -82,6 +82,16 @@ Rules:
   - Every commit on a branch follows this format, since it lands in `main` history as is.
     The PR title uses it too.
 
+## Issues
+Every issue gets exactly one scope label and one type label, so issues can be filtered by either:
+- **Scope:** the app name (`banking`), or `core` for repo-wide work (tooling, CI/CD, infra,
+  governance). Add a label when a new app is created.
+- **Type:** `feature` (new feature or improvement) or `bug`.
+
+The issue's labels map to the branch and commit: `bug` → `fix`, `feature` → `feat` (or
+another type when more precise); the scope label is the commit scope (`core` becomes `infra`,
+`ci` or `repo`).
+
 ## Testing
 pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
 
