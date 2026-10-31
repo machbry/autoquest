@@ -42,11 +42,7 @@ What this explicitly won't do, and why.
 
 ## User stories
 - As <me in a specific situation>, I want <capability> so that <benefit>.
-
-## Requirements
-- **P0 (must):** ... each with acceptance criteria
-- **P1 (nice):** ...
-- **P2 (later, design for it):** ...
+- *(nice to have)* As ..., I want ...
 
 ## Acceptance criteria
 - Given ... When ... Then ...
@@ -57,11 +53,11 @@ Metric, target, how and when it's measured.
 ## Security impact
 Data touched, external inputs to validate, secrets, exposure (CLAUDE.md checklist).
 
-## Cost
-Expected cost constraint (€0) and what could incur charges.
+## Dependencies
+Issues this one needs first (omit if none).
 
 ## Open questions
-Tag each as blocking or non-blocking.
+Tag each as blocking or non-blocking (omit if none).
 ```
 
 ## Guidance
@@ -81,8 +77,9 @@ non-goal or to `Later` in the roadmap.
 **User stories** are independent, valuable, small (one PR), and testable. Describe the need,
 not the UI widget. Include error, empty and boundary cases.
 
-**Priorities:** be ruthless with P0. Ask "if we cut this, does the feature still solve the
-problem?" If yes, it isn't P0. P2s are architectural insurance, not a wish list.
+**Priorities:** be ruthless. For each story ask "if we cut this, does the feature still solve
+the problem?" If yes, mark it *(nice to have)*. Later needs go to non-goals, with what must
+stay possible (e.g. "adding them later must not lose existing labels").
 
 **Acceptance criteria** cover the happy path, errors, edge cases and what must NOT happen.
 Each one is independently testable and should map to an integration or e2e test (CLAUDE.md
