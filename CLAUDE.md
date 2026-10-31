@@ -10,7 +10,7 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
 - **Zero cost.** Running the apps must cost €0: use GCP or GitHub free tiers (other providers'
   free tiers only if neither has one). Scale to zero, cap quotas, and set budget alerts. Flag any design
   that could cost money.
-- **Everything as code.** Infra, config, DB schema, seed data, CI/CD and repo settings are code.
+- **Everything as code.** Infra, config, DB schema, seed data and CI/CD are code.
   A manual step is a last resort and is documented with the reason it can't be automated.
 - **Secure by default.** Every feature goes through the security checklist below.
 - **No AI in production.** LLMs and coding agents may help develop the code or label data for
@@ -23,14 +23,16 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
 ## Tech stack
 - **Languages:** Python 3.12+ and SQL. Another language only when Python isn't a reasonable fit;
   justify it in the PR.
-- **Cloud:** GCP and GitHub. Prefer serverless, free-tier services: on GCP, Cloud Run,
-  Cloud Run jobs, Cloud Scheduler, Cloud Storage, BigQuery, Firestore, Secret Manager;
-  on GitHub, Actions workflows (scheduled or on-demand jobs) and artifacts (mind
-  retention limits).
-- **Database:** file-based databases preferred (DuckDB, SQLite).
+- **Cloud:** GCP and GitHub. Prefer serverless services that scale to zero and fit the free
+  tier; check each service's free-tier conditions (some apply only in certain regions). On
+  GitHub: Actions workflows (scheduled or on-demand jobs) and artifacts (mind retention
+  limits).
+- **Database:** file-based databases preferred (DuckDB, SQLite). Serverless runtimes have an
+  ephemeral disk, and network filesystems don't lock files reliably, which can corrupt them:
+  durable storage needs an explicit design.
 - **Data pipelines:** dbt for data transformations.
 - **IaC:** Terraform, with remote state in a GCS bucket.
-- **Python tooling:** uv (workspace and lockfile), pytest, Black, ruff.
+- **Python tooling:** uv (workspace and lockfile), pytest, ruff (lint and format).
 - **Local runtime:** Docker and Docker Compose.
 
 ## Repository structure
@@ -74,7 +76,7 @@ Rules:
 - **Terraform:** `snake_case` resource names.
 
 ## Git workflow
-- `main` is protected: changes go through a PR, CI must pass, no force push.
+- `main` is protected: changes go through a PR, no force push.
 - One PR per concern, ideally scoped to one app.
 - Use the GitHub MCP server for GitHub operations (issues, PRs, labels, reviews), not the
   `gh` CLI.
@@ -119,7 +121,7 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
 - **Test data:** fake data only (factories, Faker). Never real personal data.
 
 ## Code style
-- **Formatter:** Black (default line length 88).
+- **Formatter:** `ruff format` (Black-compatible, line length 88).
 - **Linter:** ruff, with the `E`, `F`, `I`, `B`, `UP`, `S`, `C90` and `D` rule sets.
 - **Docstrings:** Google style for public modules, classes and functions. A one-liner is enough
   when it says everything.
@@ -143,7 +145,10 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
 - **On PR:** format check, lint, tests with coverage, `terraform fmt`/`validate`/`plan`,
   dependency and secret scans.
 - **On merge to `main`:** build images, `terraform apply`, deploy to `prd`.
-- The only manual step is running `infra/bootstrap` once (project, state bucket, CI identity).
+- **Manual steps** (the only ones):
+  - running `infra/bootstrap` once (project, state bucket, CI identity);
+  - GitHub repository settings (ruleset on `main`, labels), set in the GitHub UI: managing
+    them as code needs a long-lived GitHub token, not worth the risk for a solo repo.
 
 ## Local development
 - Prerequisites: Docker, uv (and Terraform for infra work).
@@ -151,7 +156,7 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
   schema and deterministic fake data automatically.
 - Common commands (from the repo root):
   - `uv sync`: install dependencies
-  - `uv run black . && uv run ruff check .`: format and lint
+  - `uv run ruff format . && uv run ruff check .`: format and lint
   - `uv run pytest`: run tests
   - `docker compose up --build`: run the local stack
 
