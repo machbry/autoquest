@@ -6,7 +6,7 @@ argument-hint: "<app> <update description>"
 
 # Roadmap Update
 
-> Adapted from [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins)
+> Adapted from [anthropics/knowledge-work-plugins@a518709](https://github.com/anthropics/knowledge-work-plugins/tree/a518709449b0a32276af38c9b2a2f38c3219f5bc/product-management/skills/roadmap-update)
 > (Apache-2.0, see `../LICENSE-knowledge-work-plugins`). Modified: trimmed for a solo developer,
 > roadmap stored in the app README.
 

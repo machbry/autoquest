@@ -5,7 +5,7 @@ description: Brainstorm product ideas, explore problem spaces, and challenge ass
 
 # Product Brainstorming Skill
 
-> Adapted from [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins)
+> Adapted from [anthropics/knowledge-work-plugins@a518709](https://github.com/anthropics/knowledge-work-plugins/tree/a518709449b0a32276af38c9b2a2f38c3219f5bc/product-management/skills/product-brainstorming)
 > (Apache-2.0, see `../LICENSE-knowledge-work-plugins`). Modified: added the autoquest context below.
 
 **Autoquest context:** the "PM" is a solo developer building personal apps they use themselves,
