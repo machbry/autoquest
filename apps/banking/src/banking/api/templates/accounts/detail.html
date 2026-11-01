@@ -1,16 +1,67 @@
 {% extends "base.html" %}
-{% from "macros.html" import error with context %}
+{% from "macros.html" import error, freshness_label with context %}
 {% block title %}{{ account.name }} · Banking{% endblock %}
 {% block content %}
 <h1>{{ account.name }}</h1>
+{% if summary %}
+<section class="summary">
+  <h2>Export imported</h2>
+  <p>{{ summary.rows_in_file }} rows in the file: {{ summary.rows_new }} new, {{ summary.rows_known }} already known.
+  {% if summary.first_operation_on %}Operations from {{ summary.first_operation_on }} to {{ summary.last_operation_on }}.{% endif %}</p>
+</section>
+{% endif %}
 <dl>
   <dt>Bank</dt><dd>{{ account.bank.name }}</dd>
   <dt>Type</dt><dd>{{ type_labels[account.type] }}</dd>
   <dt>Account number</dt><dd>{{ account.account_number or "—" }}</dd>
   <dt>Opened on</dt><dd>{{ account.opened_on }}</dd>
   {% if account.closed_on %}<dt>Closed on</dt><dd>{{ account.closed_on }}</dd>{% endif %}
+  <dt>Data</dt><dd>{{ freshness_label(freshness) }}</dd>
 </dl>
 <p><a href="/accounts/{{ account.id }}/edit">Edit</a></p>
+
+<h2>Import an export</h2>
+<p class="muted">La Banque Postale CSV export, 1 MB at most. Operations already stored are skipped.</p>
+<form method="post" action="/accounts/{{ account.id }}/imports" enctype="multipart/form-data">
+  <input type="file" name="file" accept=".csv" required>
+  {{ error("file") }}
+  <button type="submit">Import</button>
+</form>
+
+<h2>Operations</h2>
+{% if operations %}
+<table>
+  <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th></tr></thead>
+  <tbody>
+    {% for operation in operations %}
+    <tr><td>{{ operation.operation_date }}</td><td>{{ operation.description }}</td><td class="num">{{ operation.amount }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No operation yet.</p>
+{% endif %}
+
+<h2>Imports</h2>
+{% if imports %}
+<table>
+  <thead><tr><th>Export date</th><th>Operations from</th><th>to</th><th class="num">Rows in file</th><th class="num">New</th></tr></thead>
+  <tbody>
+    {% for item in imports %}
+    <tr>
+      <td>{{ item.export_date }}</td>
+      <td>{{ item.first_operation_on or "—" }}</td>
+      <td>{{ item.last_operation_on or "—" }}</td>
+      <td class="num">{{ item.rows_in_file }}</td>
+      <td class="num">{{ item.rows_new }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No import yet.</p>
+{% endif %}
+
 {% if not account.closed_on %}
 <h2>Close this account</h2>
 <p class="muted">Its history stays visible. An account can't be reopened.</p>

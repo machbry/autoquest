@@ -1,4 +1,4 @@
-"""Accounts: declare, edit, close (keeps the history) and delete them."""
+"""Accounts: declare, edit, close (keeps the history) and delete them; freshness."""
 
 import logging
 from collections.abc import Sequence
@@ -8,8 +8,10 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from banking.databases.repositories.account_repository import AccountRepository
-from banking.domains.account import Account, AccountFields
+from banking.databases.repositories.import_repository import ImportRepository
+from banking.domains.account import Account, AccountFields, Freshness
 from banking.domains.errors import ConflictError, NotFoundError
+from banking.services.accounts.freshness import freshness
 from banking.services.constraints import invalid_on
 
 logger = logging.getLogger(__name__)
@@ -36,10 +38,24 @@ class AccountService:
         """Work within this session."""
         self.session = session
         self.accounts = AccountRepository(session)
+        self.imports = ImportRepository(session)
 
     def list(self) -> Sequence[Account]:
         """Every account with its bank, open ones first; closed ones stay listed."""
         return self.accounts.list()
+
+    def list_with_freshness(self) -> Sequence[tuple[Account, Freshness]]:
+        """Every account (as `list`), with how fresh its imported data is."""
+        latest, today = self.imports.latest_export_dates(), date.today()
+        return [
+            (account, freshness(latest.get(account.id), today))
+            for account in self.accounts.list()
+        ]
+
+    def get_freshness(self, account_id: int) -> Freshness:
+        """How fresh an account's imported data is."""
+        latest = self.imports.latest_export_dates().get(account_id)
+        return freshness(latest, date.today())
 
     def get(self, account_id: int) -> Account:
         """The account with this id.

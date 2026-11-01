@@ -47,7 +47,18 @@ at fault.
   (`CHECK closed_on >= opened_on`). Closing keeps the account and its history; there is no
   reopen. Deleting removes the account and, through `ON DELETE CASCADE`, its history.
 
-TODO: imports and operations (#12), labels (#13).
+- **`imports`**: one row per imported export file (the file itself is never stored):
+  `export_date`, header `balance`, dates covered, `rows_in_file`, `rows_new`. Freshness
+  counts days since the account's latest `export_date`: warning at 61, alert at 76.
+- **`operations`**: `operation_date`, `description` (the bank's text, never edited),
+  `amount`, `occurrence`, and the `import_id` that added it. Identical same-day
+  operations are real, so `occurrence` numbers the copies: unique
+  `(account_id, operation_date, description, amount, occurrence)`. An import adds the
+  copies beyond those stored, with the account row locked (`FOR UPDATE`), in one
+  transaction.
+- Both reference `accounts` with `ON DELETE CASCADE`.
+
+TODO: labels (#13).
 
 ## Security
 TODO: defined with #14.
