@@ -5,9 +5,8 @@
 > [root CLAUDE.md](../../../CLAUDE.md), banking overrides in [CLAUDE.md](../CLAUDE.md).
 
 ## Overview
-A Postgres database is the single store for all banking data. A FastAPI + HTMX web app
-covers the flows that need custom UX (import, labelling, analysis); NocoDB covers plain data
-editing on the same tables. dbt turns the stored data into analysis models. Scheduled and
+A Postgres database is the single store for all banking data. A single FastAPI + HTMX web
+app covers every user flow, from data editing to import, labelling and analysis. dbt turns the stored data into analysis models. Scheduled and
 on-demand work runs as GitHub Actions jobs.
 
 ```mermaid
@@ -15,7 +14,6 @@ flowchart LR
     user([Me, desktop browser])
     subgraph run[Cloud Run]
         web[Web app<br/>FastAPI + HTMX<br/>+ importers]
-        noco[NocoDB]
         mcp[MCP server]
     end
     subgraph pg[Postgres: Neon]
@@ -31,10 +29,8 @@ flowchart LR
     gcs[(Cloud Storage)]
 
     user --> web
-    user --> noco
     web --> banking
     web --> analytics
-    noco --> banking
     mcp -.-> banking
     dbt --> banking
     dbt --> analytics
@@ -55,17 +51,16 @@ flowchart LR
     class k1,k2,k3,k4,k5,k6 key
     classDef later stroke-dasharray:5 5
     class mcp,ml,k7 later
-    linkStyle 0,1,12 stroke:#6b7280,stroke-width:2px
-    linkStyle 2,4,5,7,9,10,11,13 stroke:#2563eb,stroke-width:2px
-    linkStyle 3,6,8,14 stroke:#16a34a,stroke-width:2px
+    linkStyle 0,10 stroke:#6b7280,stroke-width:2px
+    linkStyle 1,3,5,7,8,9,11 stroke:#2563eb,stroke-width:2px
+    linkStyle 2,4,6,12 stroke:#16a34a,stroke-width:2px
 ```
 
 ## Components
 | Component | Runs on | Roadmap features it supports |
 | --- | --- | --- |
-| **Web app** (FastAPI + HTMX) | Cloud Run | CSV import with summary and freshness indicator ([#12](https://github.com/machbry/autoquest/issues/12)); labelling queue and category merge ([#13](https://github.com/machbry/autoquest/issues/13)); monthly analysis pages (Next); PDF and other banks' imports (Next/Later) |
+| **Web app** (FastAPI + HTMX) | Cloud Run | Declare/close accounts, CSV import with summary and freshness indicator ([#12](https://github.com/machbry/autoquest/issues/12)); categories (add, rename, merge) and labelling queue ([#13](https://github.com/machbry/autoquest/issues/13)); manual operations and balances, corrections, monthly analysis pages (Next); PDF and other banks' imports (Next/Later) |
 | **Importers** (one module per bank/format, inside the web app) | Cloud Run | Banque Postale CSV (#12); PDF backfill (Next); CFCAL/Fortuneo files and bank/account auto-detection (Later) |
-| **NocoDB** | Cloud Run | Declare/close accounts (#12); add/rename categories (#13); manual operations and balances (Next); corrections |
 | **Postgres** | Neon (`prd`), Docker (`loc`) | Stores all app data, for every feature |
 | **dbt** (dbt-postgres) | Jobs, models in Postgres | Monthly analysis: spending by category, savings rate, net worth; internal transfer reporting (Next) |
 | **Jobs** | GitHub Actions | Deploy and backups ([#14](https://github.com/machbry/autoquest/issues/14)); analytics compute with `dbt build` (Next); auto-labelling training and inference (Later) |
@@ -73,8 +68,8 @@ flowchart LR
 | **MCP server** (optional) | Cloud Run | Agent-assisted labelling (Later); every journey also works without it |
 
 ## App data vs analytics
-- **SQLAlchemy + Alembic own the `banking` schema**: the tables the web app and NocoDB write
-  (accounts, imports, operations, categories, labels). Only Alembic migrations change them.
+- **SQLAlchemy + Alembic own the `banking` schema**: the tables the app writes (accounts,
+  imports, operations, categories, labels). Only Alembic migrations change them.
 - **dbt owns the `analytics` schema**: it reads the `banking` tables as sources, never writes
   them, and builds the analysis models. Alembic never touches `analytics`.
 - **The web app reads `analytics`** to show the analysis pages.
