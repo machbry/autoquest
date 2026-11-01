@@ -1,0 +1,60 @@
+# uv workspace root: holds the dev tools and their config, not a package.
+[project]
+name = "autoquest"
+version = "0.0.0"
+requires-python = ">=3.12"
+# Every app and lib, so a single `uv sync` sets up the whole repo for dev and tests.
+dependencies = ["banking"]
+
+[dependency-groups]
+dev = ["httpx", "mypy", "pre-commit", "pytest", "pytest-cov", "ruff"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+banking = { workspace = true }
+
+[tool.uv.workspace]
+members = ["apps/*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+# First-party packages for import sorting.
+src = ["apps/*/src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "C90", "D"]
+# Rules that conflict with the formatter.
+ignore = ["E111", "E114", "E117", "D206", "D300"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are not public API: asserts are the point, docstrings are optional.
+"**/tests/**" = ["S101", "D1"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.mypy]
+python_version = "3.12"
+files = ["apps/*/src"]
+disallow_untyped_defs = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+# importlib mode lets apps reuse test module names without clashing.
+addopts = "--import-mode=importlib --strict-markers"
+
+[tool.coverage.run]
+branch = true
+# Alembic glue, loaded outside the import system; exercised by integration tests.
+omit = ["*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true

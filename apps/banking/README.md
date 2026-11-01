@@ -6,6 +6,24 @@ where my money goes, my savings rate and my net worth over time.
 Product discovery notes: [docs/discovery.md](docs/discovery.md).
 Technical architecture: [docs/architecture.md](docs/architecture.md).
 
+## Run locally
+`docker compose up --build banking-web` (from the repo root) starts Postgres, applies the
+migrations and serves the app on <http://127.0.0.1:8000>. Tests:
+`docker compose up -d banking-db`, then `uv run pytest apps/banking --cov=banking`.
+
+## Configuration
+| Variable | Purpose |
+| --- | --- |
+| `BANKING_DB_URL` | Postgres URL, `postgresql+psycopg://…`; local default in [.env.example](.env.example) |
+
+## Interfaces
+| Interface | Description |
+| --- | --- |
+| `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
+| `banking` schema | Owned by Alembic (`src/banking/migrations`); dbt reads it as a source |
+
+New migration: `uv run alembic -c apps/banking/alembic.ini revision -m "<summary>"`.
+
 ## Roadmap
 **Objective:** every month, see where my money goes, my savings rate and my net worth across
 all accounts since end 2024, for under 30 minutes of upkeep a month.
