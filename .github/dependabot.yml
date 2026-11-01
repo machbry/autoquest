@@ -1,0 +1,72 @@
+# Weekly version updates for every pinned dependency (CLAUDE.md security checklist).
+# Minor and patch bumps are grouped per ecosystem; majors come as separate PRs. The 7-day
+# cooldown leaves time for a compromised release to be caught before it reaches us.
+# Prefixes make titles pass the governance check. Add a terraform entry
+# (/infra/*, /apps/*/infra) with the first .tf file: an empty directory errors on every run.
+version: 2
+
+updates:
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(repo)
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: ci(ci)
+
+  - package-ecosystem: docker
+    directories: [/apps/*, /scripts/architecture]
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(repo)
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(repo)
+    ignore:
+      # A major Postgres upgrade breaks the local data volume and must match Neon's
+      # version: a deliberate change, not a routine bump.
+      - dependency-name: postgres
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      minor-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: build(repo)

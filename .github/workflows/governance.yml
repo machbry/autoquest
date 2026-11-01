@@ -20,7 +20,10 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # Values come in through env, never ${{ }} in the script: they are user input.
+      # Dependabot names its own branches; its titles and commits are still checked.
+      # The PR author, not github.actor, so a re-run by someone else keeps the exemption.
       - name: Branch name
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         env:
           BRANCH: ${{ github.head_ref }}
         run: |
