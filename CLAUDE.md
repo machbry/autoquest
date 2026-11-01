@@ -7,9 +7,10 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
 - **Keep it simple.** Build the smallest thing that works. No speculative abstractions, no
   premature generalization. Simplify whenever possible: deleting code is a feature.
 - **Sobriety.** Keep CPU, memory, storage, network and dependency use low.
-- **Zero cost.** Running the apps must cost €0: use GCP or GitHub free tiers (other providers'
-  free tiers only if neither has one). Scale to zero, cap quotas, and set budget alerts. Flag any design
-  that could cost money.
+- **Zero cost.** Running the apps must cost €0: free tiers only. Before adopting any
+  technology, check its current free-tier conditions (limits, regions, card required) against
+  the expected usage. Scale to zero, cap quotas, and set budget alerts. Flag any design that
+  could cost money.
 - **Everything as code.** Infra, config, DB schema, seed data and CI/CD are code.
   A manual step is a last resort and is documented with the reason it can't be automated.
 - **Secure by default.** Every feature goes through the security checklist below.
@@ -23,13 +24,15 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
 ## Tech stack
 - **Languages:** Python 3.12+ and SQL. Another language only when Python isn't a reasonable fit;
   justify it in the PR.
-- **Cloud:** GCP and GitHub. Prefer serverless services that scale to zero and fit the free
-  tier; check each service's free-tier conditions (some apply only in certain regions). On
-  GitHub: Actions workflows (scheduled or on-demand jobs) and artifacts (mind retention
-  limits).
-- **Database:** file-based databases preferred (DuckDB, SQLite). Serverless runtimes have an
-  ephemeral disk, and network filesystems don't lock files reliably, which can corrupt them:
-  durable storage needs an explicit design.
+- **Compute (APIs, MCP servers, UIs):** GCP Cloud Run.
+- **Jobs:** GitHub Actions workflows (scheduled or on demand).
+- **Relational database:** Neon (Postgres).
+- **Analytics:** MotherDuck (DuckDB).
+- **NoSQL database:** GCP Firestore.
+- **File storage:** GCP Cloud Storage.
+- **Container images:** GitHub Container Registry.
+- **Secrets:** GCP Secret Manager (GitHub Actions secrets in CI).
+- **UI:** NocoDB, self-hosted, on top of the app's database (schema stays in code).
 - **Data pipelines:** dbt for data transformations.
 - **IaC:** Terraform, with remote state in a GCS bucket.
 - **Python tooling:** uv (workspace and lockfile), pytest, ruff (lint and format).
@@ -49,7 +52,7 @@ autoquest/
 ├── infra/
 │   ├── bootstrap/            # one-time setup: project, state bucket, CI identity
 │   ├── modules/              # reusable Terraform modules
-│   └── shared/               # resources shared by apps (budgets, IAM, registry)
+│   └── shared/               # resources shared by apps (budgets, IAM)
 ├── scripts/                  # dev tooling (seeding, helpers)
 ├── .github/workflows/        # CI/CD
 ├── docker-compose.yml        # full local stack
@@ -63,10 +66,10 @@ Rules:
 - Code moves to `libs/` only once a second app needs it.
 
 ## Naming conventions
-- **Apps and libs:** short lowercase names (`banking`). Folders and GCP resources use
+- **Apps and libs:** short lowercase names (`banking`). Folders and cloud resources use
   kebab-case; Python packages use snake_case.
 - **Environments:** `loc` (local) and `prd` (production).
-- **GCP resources:** `aq-<env>-<app>-<resource>`, e.g. `aq-prd-banking-api`. Globally unique
+- **Cloud resources:** `aq-<env>-<app>-<resource>`, e.g. `aq-prd-banking-api`. Globally unique
   names (buckets) get the project ID as a suffix.
 - **Python:** PEP 8 (`snake_case` functions/modules, `PascalCase` classes, `UPPER_SNAKE`
   constants).
@@ -135,13 +138,15 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
 - Validate all external input. Use parameterized SQL only.
 - Least privilege: one service account per app, with only the roles it needs.
 - Endpoints are private by default and authenticated when exposed.
-- CI authenticates to GCP through Workload Identity Federation, never service account keys.
+- CI authenticates to GCP through Workload Identity Federation, never service account keys;
+  to other providers (Neon, MotherDuck) with scoped API tokens stored in GitHub Actions
+  secrets.
 - Dependencies are pinned (`uv.lock`) and scanned for vulnerabilities.
 - Personal data: collect as little as possible, never commit it, never log it.
 - Each PR description states the feature's security impact.
 
 ## Environments and CI/CD
-- `loc`: the full stack in Docker Compose. `prd`: GCP.
+- `loc`: the full stack in Docker Compose. `prd`: the cloud services above.
 - **On PR:** format check, lint, tests with coverage, `terraform fmt`/`validate`/`plan`,
   dependency and secret scans.
 - **On merge to `main`:** build images, `terraform apply`, deploy to `prd`.
