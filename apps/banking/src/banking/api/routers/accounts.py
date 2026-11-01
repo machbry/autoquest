@@ -11,10 +11,9 @@ from banking.api.dependencies.services import AccountServiceDep, BankServiceDep
 from banking.api.rendering import render, validate
 from banking.api.schemas.accounts import AccountForm, CloseForm
 from banking.api.schemas.common import Id
-from banking.databases.models import Account, AccountType
-from banking.services.accounts.account_service import AccountFields
+from banking.domains.account import Account, AccountFields, AccountType
+from banking.domains.errors import InvalidError
 from banking.services.banks.bank_service import BankService
-from banking.services.errors import InvalidError
 
 router = APIRouter(prefix="/accounts")
 

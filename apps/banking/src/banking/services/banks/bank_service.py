@@ -2,23 +2,19 @@
 
 import logging
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 
 from sqlalchemy.orm import Session
 
-from banking.databases.models import Bank
 from banking.databases.repositories.bank_repository import BankRepository
 from banking.databases.repositories.base import ConstraintViolation
-from banking.services.errors import ConflictError, InvalidError, NotFoundError
+from banking.domains.bank import Bank, BankFields
+from banking.domains.errors import ConflictError, NotFoundError
+from banking.services.constraints import invalid_on
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass(frozen=True)
-class BankFields:
-    """What creating or updating a bank sets."""
-
-    name: str
+SAVE_ERRORS = {"uq_banks_name": ("name", "Another bank already has this name.")}
 
 
 class BankService:
@@ -53,7 +49,9 @@ class BankService:
         Raises:
             InvalidError: another bank has this name.
         """
-        bank = self._save(Bank(**asdict(fields)))
+        with invalid_on(SAVE_ERRORS):
+            bank = self.banks.create(asdict(fields))
+        self.session.commit()
         logger.info("bank %s created", bank.id)
         return bank
 
@@ -64,11 +62,12 @@ class BankService:
             NotFoundError: no such bank.
             InvalidError: another bank has this name.
         """
-        bank = self.get(bank_id)
-        for field, value in asdict(fields).items():
-            setattr(bank, field, value)
-        self._save(bank)
-        logger.info("bank %s updated", bank.id)
+        with invalid_on(SAVE_ERRORS):
+            bank = self.banks.update(bank_id, asdict(fields))
+        if bank is None:
+            raise NotFoundError
+        self.session.commit()
+        logger.info("bank %s updated", bank_id)
         return bank
 
     def delete(self, bank_id: int) -> None:
@@ -79,20 +78,12 @@ class BankService:
             ConflictError: an account still uses it.
         """
         try:
-            self.banks.delete(self.get(bank_id))
+            deleted = self.banks.delete(bank_id)
         except ConstraintViolation as exc:
             if exc.constraint != "fk_accounts_bank_id":
                 raise
             raise ConflictError("Accounts still use this bank.") from exc
+        if not deleted:
+            raise NotFoundError
         self.session.commit()
         logger.info("bank %s deleted", bank_id)
-
-    def _save(self, bank: Bank) -> Bank:
-        try:
-            self.banks.add(bank)
-        except ConstraintViolation as exc:
-            if exc.constraint != "uq_banks_name":
-                raise
-            raise InvalidError("name", "Another bank already has this name.") from exc
-        self.session.commit()
-        return bank

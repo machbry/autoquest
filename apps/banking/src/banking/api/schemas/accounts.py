@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from banking.api.schemas.common import MAX_ID
-from banking.databases.models import AccountType
+from banking.domains.account import AccountType
 
 
 class AccountForm(BaseModel):

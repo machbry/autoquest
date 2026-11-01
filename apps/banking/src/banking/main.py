@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 from banking.api.routers import accounts, banks, health
 from banking.config import get_settings
 from banking.databases.repositories.base import ConstraintViolation
-from banking.services.errors import ConflictError, NotFoundError
+from banking.domains.errors import ConflictError, NotFoundError
 
 logger = logging.getLogger(__name__)
 

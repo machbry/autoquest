@@ -4,19 +4,20 @@ import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
-from banking.databases.models import Account, AccountType, Bank
+from banking.databases.models import AccountModel, BankModel
+from banking.domains.account import AccountType
 
 MAX_ID = 2**31 - 1  # largest INTEGER
 
 
 # The local database also holds seed data: compare counts, don't expect an empty table.
 def count_banks(session):
-    return session.scalar(select(func.count()).select_from(Bank))
+    return session.scalar(select(func.count()).select_from(BankModel))
 
 
 @pytest.fixture
 def account(session, bank):
-    account = Account(
+    account = AccountModel(
         name="Main account",
         bank=bank,
         type=AccountType.CURRENT,
@@ -65,7 +66,7 @@ def test_rename_changes_the_bank(client, bank):
 
 
 def test_rename_to_a_taken_name_is_rejected(client, session, bank):
-    other = Bank(name="Other bank")
+    other = BankModel(name="Other bank")
     session.add(other)
     session.commit()
 
@@ -122,7 +123,7 @@ def test_cross_site_delete_is_refused(client, session, bank):
     )
 
     assert response.status_code == 403
-    assert session.get(Bank, bank.id) is not None
+    assert session.get(BankModel, bank.id) is not None
 
 
 def test_database_refuses_to_delete_a_bank_in_use(session, bank, account):

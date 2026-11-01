@@ -1,7 +1,10 @@
-"""SQLAlchemy models of the `banking` schema; migrations are generated from them."""
+"""SQLAlchemy models of the `banking` schema; migrations are generated from them.
 
-from banking.databases.models.account import Account, AccountType
-from banking.databases.models.bank import Bank
+They never leave the databases layer: repositories return domain objects.
+"""
+
+from banking.databases.models.account import AccountModel
+from banking.databases.models.bank import BankModel
 from banking.databases.models.base import Base
 
-__all__ = ["Account", "AccountType", "Bank", "Base"]
+__all__ = ["AccountModel", "BankModel", "Base"]

@@ -1,4 +1,4 @@
-"""Banks."""
+"""Table of banks."""
 
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -6,8 +6,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from banking.databases.models.base import Base, Timestamps
 
 
-class Bank(Timestamps, Base):
-    """A bank; it can't be deleted while an account uses it."""
+class BankModel(Timestamps, Base):
+    """Row of `banks`."""
 
     __tablename__ = "banks"
 

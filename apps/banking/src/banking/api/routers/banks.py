@@ -10,8 +10,9 @@ from banking.api.dependencies.services import BankServiceDep
 from banking.api.rendering import render, validate
 from banking.api.schemas.banks import BankForm
 from banking.api.schemas.common import Id
-from banking.services.banks.bank_service import BankFields, BankService
-from banking.services.errors import ConflictError, InvalidError
+from banking.domains.bank import BankFields
+from banking.domains.errors import ConflictError, InvalidError
+from banking.services.banks.bank_service import BankService
 
 router = APIRouter(prefix="/banks")
 
