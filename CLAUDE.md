@@ -32,7 +32,8 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
 - **File storage:** GCP Cloud Storage.
 - **Container images:** GitHub Container Registry.
 - **Secrets:** GCP Secret Manager (GitHub Actions secrets in CI).
-- **UI:** NocoDB, self-hosted, on top of the app's database (schema stays in code).
+- **Data UI:** NocoDB, self-hosted, on top of the app's database (schema stays in code).
+- **App UI:** FastAPI + HTMX (Jinja2 templates) on Cloud Run, for flows NocoDB can't cover.
 - **Data pipelines:** dbt for data transformations.
 - **IaC:** Terraform, with remote state in a GCS bucket.
 - **Python tooling:** uv (workspace and lockfile), pytest, ruff (lint and format).
@@ -152,6 +153,8 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
 - **On merge to `main`:** build images, `terraform apply`, deploy to `prd`.
 - **Manual steps** (the only ones):
   - running `infra/bootstrap` once (project, state bucket, CI identity);
+  - creating the Neon and MotherDuck accounts and their first API tokens: neither provider
+    can create an account or its first token through an API;
   - GitHub repository settings (ruleset on `main`, labels), set in the GitHub UI: managing
     them as code needs a long-lived GitHub token, not worth the risk for a solo repo.
 
