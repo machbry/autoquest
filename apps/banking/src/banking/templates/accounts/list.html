@@ -12,7 +12,7 @@
     {% for account in accounts %}
     <tr>
       <td><a href="/accounts/{{ account.id }}">{{ account.name }}</a></td>
-      <td>{{ bank_labels[account.bank] }}</td>
+      <td>{{ account.bank.name }}</td>
       <td>{{ type_labels[account.type] }}</td>
       <td>{% if account.closed_on %}<span class="muted">Closed on {{ account.closed_on }}</span>{% else %}Open{% endif %}</td>
     </tr>

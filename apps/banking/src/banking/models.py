@@ -3,8 +3,16 @@
 from datetime import date, datetime
 from enum import StrEnum
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, MetaData, String, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    MetaData,
+    String,
+    func,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from banking.db import SCHEMA
 
@@ -25,17 +33,17 @@ class Base(DeclarativeBase):
     type_annotation_map = {datetime: DateTime(timezone=True)}
 
 
-class Bank(StrEnum):
-    """Banks the app knows."""
+class Timestamps:
+    """`created_at` and `updated_at`, set by the database."""
 
-    BANQUE_POSTALE = "banque_postale"
-    CFCAL = "cfcal"
-    FORTUNEO = "fortuneo"
-    GOODVEST = "goodvest"
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=func.now()
+    )
 
 
 class AccountType(StrEnum):
-    """Kinds of account."""
+    """Kinds of account; fixed, because the analysis relies on them."""
 
     CURRENT = "current"
     SAVINGS = "savings"
@@ -43,20 +51,17 @@ class AccountType(StrEnum):
     LIFE_INSURANCE = "life_insurance"
 
 
-def _check_enum(enum: type[StrEnum], name: str) -> Enum:
-    """Store an enum as its value in a VARCHAR, with a CHECK listing the values."""
-    return Enum(
-        enum,
-        name=name,
-        native_enum=False,
-        create_constraint=True,
-        length=max(len(member.value) for member in enum),
-        values_callable=lambda members: [member.value for member in members],
-    )
+class Bank(Timestamps, Base):
+    """A bank; it can't be deleted while an account uses it."""
+
+    __tablename__ = "banks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True)
 
 
-class Account(Base):
-    """A bank account; closing it keeps its history."""
+class Account(Timestamps, Base):
+    """A bank account; closing it keeps its history, deleting it removes it."""
 
     __tablename__ = "accounts"
     __table_args__ = (
@@ -65,13 +70,23 @@ class Account(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
-    bank: Mapped[Bank] = mapped_column(_check_enum(Bank, "bank"))
-    type: Mapped[AccountType] = mapped_column(_check_enum(AccountType, "type"))
+    bank_id: Mapped[int] = mapped_column(ForeignKey("banks.id", ondelete="RESTRICT"))
+    # Stored as its value in a VARCHAR, with a CHECK listing the values.
+    type: Mapped[AccountType] = mapped_column(
+        Enum(
+            AccountType,
+            name="type",
+            native_enum=False,
+            create_constraint=True,
+            length=14,
+            values_callable=lambda members: [member.value for member in members],
+        )
+    )
     # Optional: some accounts (life insurance) have none.
     account_number: Mapped[str | None] = mapped_column(String(34), unique=True)
     opened_on: Mapped[date]
     closed_on: Mapped[date | None]
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=func.now()
-    )
+
+    # One-way on purpose: with a Bank.accounts collection, deleting a bank would make
+    # the ORM null the accounts' bank_id instead of letting the FK refuse the delete.
+    bank: Mapped[Bank] = relationship()

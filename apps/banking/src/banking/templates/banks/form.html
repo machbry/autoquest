@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "macros.html" import error with context %}
+{% block title %}Rename {{ bank.name }} · Banking{% endblock %}
+{% block content %}
+<h1>Rename {{ bank.name }}</h1>
+<form class="stacked" method="post" action="/banks/{{ bank.id }}">
+  <label>Name
+    <input name="name" value="{{ values.name or '' }}" required maxlength="100">
+  </label>
+  {{ error("name") }}
+  <button type="submit">Save</button>
+  <a href="/banks">Cancel</a>
+</form>
+{% endblock %}

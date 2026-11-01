@@ -9,13 +9,14 @@
   </label>
   {{ error("name") }}
   <label>Bank
-    <select name="bank" required>
-      {% for bank, label in bank_labels.items() %}
-      <option value="{{ bank.value }}" {{ "selected" if values.bank == bank.value }}>{{ label }}</option>
+    <select name="bank_id" required>
+      {% for bank in banks %}
+      <option value="{{ bank.id }}" {{ "selected" if values.bank_id|string == bank.id|string }}>{{ bank.name }}</option>
       {% endfor %}
     </select>
   </label>
-  {{ error("bank") }}
+  {% if not banks %}<span class="error">No bank yet: <a href="/banks">add a bank</a> first.</span>{% endif %}
+  {{ error("bank_id") }}
   <label>Type
     <select name="type" required>
       {% for type, label in type_labels.items() %}
