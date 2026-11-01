@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "macros.html" import error with context %}
+{% block title %}{{ account.name }} · Banking{% endblock %}
+{% block content %}
+<h1>{{ account.name }}</h1>
+<dl>
+  <dt>Bank</dt><dd>{{ bank_labels[account.bank] }}</dd>
+  <dt>Type</dt><dd>{{ type_labels[account.type] }}</dd>
+  <dt>Account number</dt><dd>{{ account.account_number or "—" }}</dd>
+  <dt>Opened on</dt><dd>{{ account.opened_on }}</dd>
+  {% if account.closed_on %}<dt>Closed on</dt><dd>{{ account.closed_on }}</dd>{% endif %}
+</dl>
+<p><a href="/accounts/{{ account.id }}/edit">Edit</a></p>
+{% if not account.closed_on %}
+<h2>Close this account</h2>
+<p class="muted">Its history stays visible. An account can't be reopened.</p>
+<form method="post" action="/accounts/{{ account.id }}/close">
+  <label>Closed on <input type="date" name="closed_on" value="{{ closed_on }}" required></label>
+  {{ error("closed_on") }}
+  <button type="submit">Close account</button>
+</form>
+{% endif %}
+{% endblock %}

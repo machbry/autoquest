@@ -7,7 +7,9 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
+from sqlalchemy.orm import Session
 
 # Default to the docker-compose database, before the app reads its settings.
 # 127.0.0.1, not localhost: on Windows localhost tries IPv6 first and hangs.
@@ -25,3 +27,25 @@ def engine() -> Iterator[Engine]:
     engine = create_engine(os.environ["BANKING_DB_URL"])
     yield engine
     engine.dispose()
+
+
+@pytest.fixture
+def session(engine: Engine) -> Iterator[Session]:
+    """Session whose writes, commits included, are rolled back after the test."""
+    with engine.connect() as connection:
+        transaction = connection.begin()
+        with Session(connection, join_transaction_mode="create_savepoint") as session:
+            yield session
+        transaction.rollback()
+
+
+@pytest.fixture
+def client(session: Session) -> TestClient:
+    """Client of an app whose requests all use the test session."""
+    # Imported late: the app reads its settings, set above, at import time.
+    from banking.db import get_session
+    from banking.main import create_app
+
+    app = create_app()
+    app.dependency_overrides[get_session] = lambda: session
+    return TestClient(app, follow_redirects=False)

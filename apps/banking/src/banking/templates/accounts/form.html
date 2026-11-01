@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "macros.html" import error with context %}
+{% block title %}{{ "Edit " ~ account.name if account else "Declare an account" }} · Banking{% endblock %}
+{% block content %}
+<h1>{{ "Edit " ~ account.name if account else "Declare an account" }}</h1>
+<form class="stacked" method="post" action="{{ '/accounts/%d' % account.id if account else '/accounts' }}">
+  <label>Name
+    <input name="name" value="{{ values.name or '' }}" required maxlength="100">
+  </label>
+  {{ error("name") }}
+  <label>Bank
+    <select name="bank" required>
+      {% for bank, label in bank_labels.items() %}
+      <option value="{{ bank.value }}" {{ "selected" if values.bank == bank.value }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {{ error("bank") }}
+  <label>Type
+    <select name="type" required>
+      {% for type, label in type_labels.items() %}
+      <option value="{{ type.value }}" {{ "selected" if values.type == type.value }}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {{ error("type") }}
+  <label>Account number <span class="muted">(optional)</span>
+    <input name="account_number" value="{{ values.account_number or '' }}" maxlength="40">
+  </label>
+  {{ error("account_number") }}
+  <label>Opened on
+    <input type="date" name="opened_on" value="{{ values.opened_on or '' }}" required>
+  </label>
+  {{ error("opened_on") }}
+  <button type="submit">Save</button>
+  <a href="{{ '/accounts/%d' % account.id if account else '/' }}">Cancel</a>
+</form>
+{% endblock %}

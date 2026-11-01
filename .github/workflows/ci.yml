@@ -15,18 +15,6 @@ jobs:
   checks:
     name: Lint, types and tests
     runs-on: ubuntu-latest
-    services:
-      banking-db:
-        image: postgres:17
-        env:
-          POSTGRES_USER: banking
-          POSTGRES_PASSWORD: banking
-          POSTGRES_DB: banking
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U banking"
-          --health-interval 2s --health-timeout 2s --health-retries 15
     env:
       BANKING_DB_URL: postgresql+psycopg://banking:banking@127.0.0.1:5432/banking
     steps:
@@ -39,6 +27,10 @@ jobs:
       - run: uv sync --locked
       - name: Pre-commit hooks (format, lint, types, whitespace)
         run: uv run pre-commit run --all-files --show-diff-on-failure
+      # The local stack, as in development: integration tests use its database, e2e
+      # tests its web app. Building it also checks the image.
+      - name: Start the local stack
+        run: docker compose up -d --build --wait banking-web
       - name: Tests (banking)
         run: uv run pytest apps/banking --cov=banking
       - name: Dependency vulnerabilities

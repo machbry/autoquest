@@ -14,7 +14,10 @@ SCHEMA = "banking"
 @cache
 def get_engine() -> Engine:
     """Return the app-wide engine, created on first use."""
-    return create_engine(str(get_settings().db_url), pool_pre_ping=True)
+    # Hidden parameters keep personal data (names, amounts) out of logged DB errors.
+    return create_engine(
+        str(get_settings().db_url), pool_pre_ping=True, hide_parameters=True
+    )
 
 
 def get_session() -> Iterator[Session]:

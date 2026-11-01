@@ -6,11 +6,17 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic",
     "fastapi",
+    "jinja2",
     "psycopg[binary]",
     "pydantic-settings",
+    "python-multipart",
     "sqlalchemy",
     "uvicorn",
 ]
+
+# Fake data for the local seed service (Dockerfile `dev` target); never installed in prd.
+[dependency-groups]
+dev = ["faker"]
 
 [build-system]
 requires = ["uv_build>=0.13,<0.14"]
