@@ -33,15 +33,30 @@ flowchart LR
     user --> web
     user --> noco
     web --> banking
-    web -- reads --> analytics
+    web --> analytics
     noco --> banking
     mcp -.-> banking
-    dbt -- reads --> banking
+    dbt --> banking
     dbt --> analytics
-    backup -- reads --> banking
+    backup --> banking
     backup --> gcs
     ml -.-> banking
     ml -.-> gcs
+
+    subgraph legend[Legend]
+        direction LR
+        k1[ ] -- uses --> k2[ ]
+        k3[ ] -- reads and writes --> k4[ ]
+        k5[ ] -- reads only --> k6[ ]
+        k7[ ] -. later .-> k8[ ]
+    end
+
+    classDef key fill:none,stroke:none
+    class k1,k2,k3,k4,k5,k6,k7,k8 key
+    linkStyle 0,1,12 stroke:#6b7280,stroke-width:2px
+    linkStyle 2,4,5,7,9,10,11,13 stroke:#2563eb,stroke-width:2px
+    linkStyle 3,6,8,14 stroke:#16a34a,stroke-width:2px
+    linkStyle 15 stroke:#6b7280,stroke-width:2px
 ```
 
 ## Components
