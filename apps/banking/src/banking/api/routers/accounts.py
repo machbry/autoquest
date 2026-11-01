@@ -1,36 +1,21 @@
 """Account pages: list, declare, show, edit, close and delete."""
 
-from datetime import date
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from banking.api.dependencies.forms import FormDep
-from banking.api.dependencies.services import (
-    AccountServiceDep,
-    BankServiceDep,
-    ImportServiceDep,
-    OperationServiceDep,
-)
+from banking.api.dependencies.pages import AccountPageDep
+from banking.api.dependencies.services import AccountServiceDep, BankServiceDep
 from banking.api.rendering import render, validate
 from banking.api.schemas.accounts import AccountForm, CloseForm
 from banking.api.schemas.common import MAX_ID, Id
-from banking.domains.account import Account, AccountFields, AccountType
+from banking.domains.account import Account, AccountFields
 from banking.domains.errors import InvalidError
-from banking.services.accounts.account_service import AccountService
 from banking.services.banks.bank_service import BankService
-from banking.services.imports.import_service import ImportService
-from banking.services.operations.operation_service import OperationService
 
 router = APIRouter(prefix="/accounts")
-
-TYPE_LABELS = {
-    AccountType.CURRENT: "Current",
-    AccountType.SAVINGS: "Savings",
-    AccountType.PEA: "PEA",
-    AccountType.LIFE_INSURANCE: "Life insurance",
-}
 
 
 def _render_form(
@@ -46,38 +31,6 @@ def _render_form(
         status_code,
         account=account,
         banks=banks.list(),
-        type_labels=TYPE_LABELS,
-        **context,
-    )
-
-
-def render_account_page(
-    request: Request,
-    accounts: AccountService,
-    imports: ImportService,
-    operations: OperationService,
-    account_id: int,
-    status_code: int = 200,
-    summary_id: int | None = None,
-    **context: Any,
-) -> HTMLResponse:
-    """An account's page: details, freshness, import form and history, operations.
-
-    `summary_id` is an import of the account to show the summary of.
-    """
-    account = accounts.get(account_id)
-    history = imports.list_for_account(account_id)
-    context.setdefault("closed_on", date.today().isoformat())
-    return render(
-        request,
-        "accounts/detail.html",
-        status_code,
-        account=account,
-        type_labels=TYPE_LABELS,
-        freshness=accounts.get_freshness(account_id),
-        imports=history,
-        summary=next((item for item in history if item.id == summary_id), None),
-        operations=operations.list_for_account(account_id),
         **context,
     )
 
@@ -86,10 +39,7 @@ def render_account_page(
 def list_accounts(request: Request, accounts: AccountServiceDep) -> HTMLResponse:
     """Every account with its freshness, open ones first; closed ones stay listed."""
     return render(
-        request,
-        "accounts/list.html",
-        accounts=accounts.list_with_freshness(),
-        type_labels=TYPE_LABELS,
+        request, "accounts/list.html", accounts=accounts.list_with_freshness()
     )
 
 
@@ -121,16 +71,12 @@ def create_account(
 @router.get("/{account_id}", response_class=HTMLResponse)
 def show_account(
     request: Request,
-    accounts: AccountServiceDep,
-    imports: ImportServiceDep,
-    operations: OperationServiceDep,
+    page: AccountPageDep,
     account_id: Id,
     import_id: Annotated[int | None, Query(ge=1, le=MAX_ID)] = None,
 ) -> HTMLResponse:
     """An account's page; `import_id` shows the summary of one of its imports."""
-    return render_account_page(
-        request, accounts, imports, operations, account_id, summary_id=import_id
-    )
+    return page.render(request, account_id, summary_id=import_id)
 
 
 @router.get("/{account_id}/edit", response_class=HTMLResponse)
@@ -167,8 +113,7 @@ def update_account(
 def close_account(
     request: Request,
     accounts: AccountServiceDep,
-    imports: ImportServiceDep,
-    operations: OperationServiceDep,
+    page: AccountPageDep,
     data: FormDep,
     account_id: Id,
 ) -> Response:
@@ -181,16 +126,8 @@ def close_account(
             errors = {exc.field: exc.message}
         else:
             return RedirectResponse(f"/accounts/{account_id}", status_code=303)
-    return render_account_page(
-        request,
-        accounts,
-        imports,
-        operations,
-        account_id,
-        422,
-        closed_on=data.get("closed_on", ""),
-        errors=errors,
-    )
+    closed_on = data.get("closed_on", "")
+    return page.render(request, account_id, 422, closed_on=closed_on, errors=errors)
 
 
 @router.post("/{account_id}/delete")

@@ -46,7 +46,6 @@ at fault.
   relies on it), `account_number` (unique, optional), `opened_on`, `closed_on`
   (`CHECK closed_on >= opened_on`). Closing keeps the account and its history; there is no
   reopen. Deleting removes the account and, through `ON DELETE CASCADE`, its history.
-
 - **`imports`**: one row per imported export file (the file itself is never stored):
   `export_date`, header `balance`, dates covered, `rows_in_file`, `rows_new`. Freshness
   counts days since the account's latest `export_date`: warning at 61, alert at 76.

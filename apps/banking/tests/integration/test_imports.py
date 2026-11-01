@@ -8,13 +8,13 @@ from faker import Faker
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
+from banking.api.schemas.common import MAX_ID
 from banking.databases.models import ImportModel, OperationModel
 from banking.domains.operation import OperationFields
 from banking.fakes import build_export, fake_operations
 from banking.services.imports.banque_postale_csv import FIRST_ROW_LINE
 from banking.services.imports.import_service import MAX_FILE_BYTES
 
-MAX_ID = 2**31 - 1  # largest INTEGER
 NUMBER = "12345A"  # the `declare` fixture's account number
 TODAY = date.today()
 
@@ -169,6 +169,13 @@ def test_malformed_amount_is_rejected_with_its_line(client, session, account_url
         (b"", "This file isn't a Banque Postale CSV export."),
         (export([operation()], currency="dollars"), "Only exports in euros"),
         (b"x" * (MAX_FILE_BYTES + 1), "The file is over 1 MB."),
+        # Regression: csv.Error on a stray carriage return answered 500.
+        (
+            export([operation(description="CB\rSHOP")]).replace(b'"', b""),
+            f"Line {FIRST_ROW_LINE}: malformed line.",
+        ),
+        # Regression: a future date made freshness negative, and OK, for good.
+        (export([], TODAY + timedelta(days=1)), "The export date is in the future."),
     ],
 )
 def test_unreadable_or_unsupported_file_is_rejected(
@@ -178,7 +185,9 @@ def test_unreadable_or_unsupported_file_is_rejected(
 
 
 def test_missing_file_is_rejected(client, session, account_url):
-    response = client.post(f"{account_url}/imports", data={})
+    response = client.post(
+        f"{account_url}/imports", files={"other": ("export.csv", export([]))}
+    )
 
     assert response.status_code == 422
     assert count(session, ImportModel, account_url) == 0
@@ -188,6 +197,22 @@ def test_much_larger_upload_is_refused_before_reading(client, account_url):
     response = upload(client, account_url, b"x" * (2 * MAX_FILE_BYTES + 1))
 
     assert response.status_code == 413
+
+
+def test_upload_without_a_declared_length_is_refused(client, account_url):
+    # Regression: a chunked body skipped the size check and was spooled whole.
+    response = client.post(f"{account_url}/imports", content=iter([export([])]))
+
+    assert response.status_code == 411
+
+
+def test_upload_with_an_invalid_length_is_refused(client, account_url):
+    # Regression: a non-numeric Content-Length answered 500.
+    response = client.post(
+        f"{account_url}/imports", content=b"", headers={"Content-Length": "x"}
+    )
+
+    assert response.status_code == 400
 
 
 def test_closed_account_keeps_its_operations_and_still_imports(client, account_url):

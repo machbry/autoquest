@@ -163,6 +163,26 @@ def test_malformed_header_value_names_its_line(number, line, message):
     assert_rejected(replace_line(export(), number, line), message)
 
 
+@pytest.mark.parametrize(
+    "row",
+    [
+        "31/10/2026;CB\rSHOP;-1,00",  # stray carriage return in an unquoted field
+        '31/10/2026;"' + "x" * 200_000 + '";-1,00',  # beyond csv's field size limit
+    ],
+)
+def test_line_csv_cannot_read_names_its_line(row):
+    # Regression: csv.Error escaped the parser, and the upload answered 500.
+    content = replace_line(export(operation()), FIRST_ROW_LINE, row)
+
+    assert_rejected(content, f"Line {FIRST_ROW_LINE}: malformed line.")
+
+
+def test_account_number_is_normalized():
+    content = build_export(" 123 45a ", EXPORTED_ON, [])
+
+    assert parse(content).account_number == "12345A"
+
+
 def test_nul_byte_is_rejected():
     content = replace_line(
         export(operation()), FIRST_ROW_LINE, '31/10/2026;"A\x00";-1,00'

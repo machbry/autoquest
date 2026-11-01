@@ -7,6 +7,11 @@ from enum import StrEnum
 from banking.domains.bank import Bank
 
 
+def normalize_account_number(value: str) -> str:
+    """Drop spaces and uppercase, so formatting never hides a match or a duplicate."""
+    return value.replace(" ", "").upper()
+
+
 class AccountType(StrEnum):
     """Kinds of account; fixed, because the analysis relies on them."""
 

@@ -28,9 +28,17 @@ async def form_data(request: Request) -> dict[str, Any]:
 async def uploaded_file(request: Request) -> bytes:
     """The `file` field's content, cut one byte past what an import accepts.
 
-    Empty if no file was sent.
+    Empty if no file was sent. The body's declared length is required: without it (a
+    chunked upload), the form parser would spool any size to disk. Browsers always
+    send it with a form.
     """
-    if int(request.headers.get("content-length") or 0) > MAX_UPLOAD_BYTES:
+    try:
+        length = int(request.headers["content-length"])
+    except KeyError:
+        raise HTTPException(status_code=411, detail="Length required") from None
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid length") from None
+    if length > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=413, detail="File too large")
     form = await request.form(max_files=1, max_fields=1)
     file = form.get("file")

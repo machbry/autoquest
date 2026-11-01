@@ -4,6 +4,7 @@ import logging
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict
+from datetime import date
 
 from sqlalchemy.orm import Session
 
@@ -55,25 +56,30 @@ class ImportService:
 
         Raises:
             NotFoundError: no such account.
-            InvalidError: the file is too large, malformed, or another account's.
+            InvalidError: the file is too large, malformed, dated in the future, or
+                another account's.
         """
+        if len(content) > MAX_FILE_BYTES:
+            raise InvalidError("file", "The file is over 1 MB.")
+        export = banque_postale_csv.parse(content)
+        # A future date would freeze freshness: it counts from the latest export date.
+        if export.export_date > date.today():
+            raise InvalidError("file", "The export date is in the future.")
         # Locked until the commit: two imports into one account would count the same
         # stored operations, and both add the same new ones.
         if (account := self.accounts.get_for_update(account_id)) is None:
             raise NotFoundError
-        if len(content) > MAX_FILE_BYTES:
-            raise InvalidError("file", "The file is over 1 MB.")
-        export = banque_postale_csv.parse(content)
         if account.account_number is None:
             raise InvalidError("file", "Set this account's number before importing.")
-        if export.account_number.replace(" ", "").upper() != account.account_number:
+        if export.account_number != account.account_number:
             raise InvalidError("file", "This file is another account's export.")
 
         dates = [operation.operation_date for operation in export.operations]
+        first, last = min(dates, default=None), max(dates, default=None)
         known = (
-            self.operations.count_by_key(account_id, min(dates), max(dates))
-            if dates
-            else {}
+            {}
+            if first is None or last is None
+            else self.operations.count_by_key(account_id, first, last)
         )
         new = new_occurrences(export.operations, known)
         imported = self.imports.create(
@@ -81,12 +87,14 @@ class ImportService:
                 "account_id": account_id,
                 "export_date": export.export_date,
                 "balance": export.balance,
-                "first_operation_on": min(dates, default=None),
-                "last_operation_on": max(dates, default=None),
+                "first_operation_on": first,
+                "last_operation_on": last,
                 "rows_in_file": len(export.operations),
                 "rows_new": len(new),
             }
         )
+        # The lock makes uq_operations_occurrence unreachable here: if it breaks, it's
+        # a bug, and the generic handler answers 500.
         self.operations.create_many(
             {
                 "account_id": account_id,

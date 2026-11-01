@@ -54,8 +54,7 @@ class AccountService:
 
     def get_freshness(self, account_id: int) -> Freshness:
         """How fresh an account's imported data is."""
-        latest = self.imports.latest_export_dates().get(account_id)
-        return freshness(latest, date.today())
+        return freshness(self.imports.latest_export_date(account_id), date.today())
 
     def get(self, account_id: int) -> Account:
         """The account with this id.
