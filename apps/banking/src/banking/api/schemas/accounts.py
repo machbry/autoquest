@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from banking.api.schemas.common import MAX_ID
-from banking.domains.account import AccountType
+from banking.domains.account import AccountType, normalize_account_number
 
 
 class AccountForm(BaseModel):
@@ -23,10 +23,9 @@ class AccountForm(BaseModel):
     @field_validator("account_number", mode="before")
     @classmethod
     def normalize_account_number(cls, value: Any) -> Any:
-        """Drop spaces and uppercase, so formatting never hides a duplicate."""
+        """Normalize, so formatting never hides a duplicate; empty means none."""
         if isinstance(value, str):
-            value = value.replace(" ", "").upper()
-            return value or None
+            return normalize_account_number(value) or None
         return value
 
 

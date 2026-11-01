@@ -38,6 +38,12 @@ class ImportRepository(Repository[ImportModel, Import]):
         )
         return [self.to_domain(row) for row in rows]
 
+    def latest_export_date(self, account_id: int) -> date | None:
+        """Export date of an account's latest export; None if it has no import."""
+        return self.session.scalar(
+            select(func.max(ImportModel.export_date)).filter_by(account_id=account_id)
+        )
+
     def latest_export_dates(self) -> Mapping[int, date]:
         """Account id → export date of its latest export, for accounts with imports."""
         rows = self.session.execute(

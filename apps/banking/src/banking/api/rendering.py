@@ -8,7 +8,15 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, ValidationError
 
+from banking.domains.account import AccountType
+
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+templates.env.globals["type_labels"] = {
+    AccountType.CURRENT: "Current",
+    AccountType.SAVINGS: "Savings",
+    AccountType.PEA: "PEA",
+    AccountType.LIFE_INSURANCE: "Life insurance",
+}
 
 # Field name → message, shown next to the field.
 Errors = dict[str, str]
