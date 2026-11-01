@@ -82,7 +82,7 @@ Rules:
 - **Terraform:** `snake_case` resource names.
 
 ## Git workflow
-- `main` is protected: changes go through a PR, no force push.
+- `main` is protected: changes go through a PR, CI must pass, no force push.
 - One PR per concern, ideally scoped to one app.
 - Use the GitHub MCP server for GitHub operations (issues, PRs, labels, reviews), not the
   `gh` CLI.
