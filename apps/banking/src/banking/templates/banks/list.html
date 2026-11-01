@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "macros.html" import error with context %}
+{% block title %}Banks · Banking{% endblock %}
+{% block content %}
+<h1>Banks</h1>
+{% if banks %}
+<table>
+  <thead>
+    <tr><th>Name</th><th>Accounts</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for bank, account_count in banks %}
+    <tr>
+      <td>{{ bank.name }}</td>
+      <td>{{ account_count }}</td>
+      <td>
+        <a href="/banks/{{ bank.id }}/edit">Rename</a>
+        <form method="post" action="/banks/{{ bank.id }}/delete" style="display: inline">
+          <button type="submit">Delete</button>
+        </form>
+        {% if failed_id == bank.id %}{{ error("delete") }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No bank yet.</p>
+{% endif %}
+<h2>Add a bank</h2>
+<form method="post" action="/banks">
+  <label>Name <input name="name" value="{{ values.name or '' }}" required maxlength="100"></label>
+  <button type="submit">Add</button>
+  {{ error("name") }}
+</form>
+{% endblock %}

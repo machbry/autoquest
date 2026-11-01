@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from banking import accounts
+from banking import accounts, banks
 from banking.config import get_settings
 from banking.db import get_session
 
@@ -26,6 +26,7 @@ def create_app() -> FastAPI:
     get_settings()
     app = FastAPI(title="banking", docs_url=None, redoc_url=None, openapi_url=None)
     app.include_router(accounts.router)
+    app.include_router(banks.router)
 
     @app.middleware("http")
     async def refuse_cross_site(

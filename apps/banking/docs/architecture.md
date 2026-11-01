@@ -34,13 +34,15 @@ mark planned components. Source: [architecture.py](architecture.py).
 - **Contract**: dbt declares the `banking` tables as sources and holds tests on them.
 
 ## Data model
-Defined in [models.py](../src/banking/models.py); constraints are named `uq_`/`ck_` +
+Defined in [models.py](../src/banking/models.py); constraints are named `uq_`/`ck_`/`fk_` +
 table + column/rule, so the app can map a violation to the field at fault.
 
-- **`accounts`**: `name` (unique), `bank` and `type` (fixed lists, `CHECK`),
-  `account_number` (unique, optional), `opened_on`, `closed_on`
+- **`banks`**: `name` (unique). Managed by the user; a bank used by an account can't be
+  deleted (`accounts.bank_id` foreign key, `ON DELETE RESTRICT`).
+- **`accounts`**: `name` (unique), `bank_id`, `type` (fixed list, `CHECK`: the analysis
+  relies on it), `account_number` (unique, optional), `opened_on`, `closed_on`
   (`CHECK closed_on >= opened_on`). Closing keeps the account and its history; there is no
-  reopen or delete.
+  reopen. Deleting removes the account and, through `ON DELETE CASCADE`, its history.
 
 TODO: imports and operations (#12), labels (#13).
 

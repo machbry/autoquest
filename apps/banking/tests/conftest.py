@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 
+from banking.models import Bank
+
 # Default to the docker-compose database, before the app reads its settings.
 # 127.0.0.1, not localhost: on Windows localhost tries IPv6 first and hangs.
 os.environ.setdefault(
@@ -49,3 +51,12 @@ def client(session: Session) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_session] = lambda: session
     return TestClient(app, follow_redirects=False)
+
+
+@pytest.fixture
+def bank(session: Session) -> Bank:
+    """A bank to attach accounts to."""
+    bank = Bank(name="Test bank")
+    session.add(bank)
+    session.commit()
+    return bank

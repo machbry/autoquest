@@ -13,7 +13,10 @@ loads deterministic fake data (`banking-seed`, safe to re-run) and serves the ap
 
 Tests need the stack, without the fake data: `docker compose up -d --build --wait
 banking-web`, then `uv run pytest apps/banking --cov=banking`. Integration tests roll back
-their writes; the e2e test leaves an `E2E …` account behind.
+their writes; the e2e test deletes what it creates.
+
+If a not-yet-merged migration was edited, reset the local database (fake data only):
+`docker compose down -v`.
 
 ## Configuration
 | Variable | Purpose |
@@ -24,7 +27,8 @@ their writes; the e2e test leaves an `E2E …` account behind.
 ## Interfaces
 | Interface | Description |
 | --- | --- |
-| `GET /` | Accounts list; declare (`/accounts/new`), edit and close accounts from there |
+| `GET /` | Accounts list; declare (`/accounts/new`), edit, close or delete accounts from there |
+| `GET /banks` | Banks list; add, rename, or delete a bank no account uses |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
 | `banking` schema | Owned by Alembic (`src/banking/migrations`); dbt reads it as a source |
 
