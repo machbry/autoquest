@@ -57,15 +57,15 @@ flowchart LR
 ```
 
 ## Components
-| Component | Runs on | Roadmap features it supports |
+| Component | Runs on | Features it supports |
 | --- | --- | --- |
-| **Web app** (FastAPI + HTMX) | Cloud Run | Declare/close accounts, CSV import with summary and freshness indicator ([#12](https://github.com/machbry/autoquest/issues/12)); categories (add, rename, merge) and labelling queue ([#13](https://github.com/machbry/autoquest/issues/13)); manual operations and balances, corrections, monthly analysis pages (Next); PDF and other banks' imports (Next/Later) |
-| **Importers** (one module per bank/format, inside the web app) | Cloud Run | Banque Postale CSV (#12); PDF backfill (Next); CFCAL/Fortuneo files and bank/account auto-detection (Later) |
+| **Web app** (FastAPI + HTMX) | Cloud Run | Accounts (declare, close); statement import with summary and freshness indicator; categories (add, rename, merge); labelling queue; manual operations and balances; corrections; monthly analysis pages |
+| **Importers** (one module per bank/format, inside the web app) | Cloud Run | Banque Postale CSV; PDF statements; CFCAL and Fortuneo files; bank/account auto-detection |
 | **Postgres** | Neon (`prd`), Docker (`loc`) | Stores all app data, for every feature |
-| **dbt** (dbt-postgres) | Jobs, models in Postgres | Monthly analysis: spending by category, savings rate, net worth; internal transfer reporting (Next) |
-| **Jobs** | GitHub Actions | Deploy and backups ([#14](https://github.com/machbry/autoquest/issues/14)); analytics compute with `dbt build` (Next); auto-labelling training and inference (Later) |
-| **Cloud Storage** | GCP | Backups (#14); trained auto-labelling model (Later) |
-| **MCP server** (optional) | Cloud Run | Agent-assisted labelling (Later); every journey also works without it |
+| **dbt** (dbt-postgres) | Jobs, models in Postgres | Monthly analysis: spending by category, savings rate, net worth; internal transfer reporting |
+| **Jobs** | GitHub Actions | Deploy; backups; analytics compute (`dbt build`); auto-labelling training and inference |
+| **Cloud Storage** | GCP | Backups; trained auto-labelling model |
+| **MCP server** (optional) | Cloud Run | Agent-assisted labelling; every journey also works without it |
 
 ## App data vs analytics
 - **SQLAlchemy + Alembic own the `banking` schema**: the tables the app writes (accounts,
