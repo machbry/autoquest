@@ -7,32 +7,6 @@ from banking.databases.models import AccountModel
 MAX_ID = 2**31 - 1  # largest INTEGER
 
 
-@pytest.fixture
-def account_form(bank):
-    def make(**overrides):
-        return {
-            "name": "Main account",
-            "bank_id": str(bank.id),
-            "type": "current",
-            "account_number": "12345A",
-            "opened_on": "2020-01-15",
-        } | overrides
-
-    return make
-
-
-@pytest.fixture
-def declare(client, account_form):
-    """Declare an account; return its page URL."""
-
-    def post(**overrides):
-        response = client.post("/accounts", data=account_form(**overrides))
-        assert response.status_code == 303
-        return response.headers["location"]
-
-    return post
-
-
 # The local database also holds seed data: compare counts, don't expect an empty table.
 def count_accounts(session):
     return session.scalar(select(func.count()).select_from(AccountModel))

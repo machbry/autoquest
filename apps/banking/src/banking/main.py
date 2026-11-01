@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.exc import DBAPIError
 
-from banking.api.routers import accounts, banks, health
+from banking.api.routers import accounts, banks, health, imports
 from banking.config import get_settings
 from banking.databases.repositories.base import ConstraintViolation
 from banking.domains.errors import ConflictError, NotFoundError
@@ -23,7 +23,7 @@ def create_app() -> FastAPI:
     """Build the app; fails fast if the configuration is invalid."""
     get_settings()
     app = FastAPI(title="banking", docs_url=None, redoc_url=None, openapi_url=None)
-    for module in (accounts, banks, health):
+    for module in (accounts, banks, health, imports):
         app.include_router(module.router)
 
     @app.get("/", include_in_schema=False)

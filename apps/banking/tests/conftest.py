@@ -1,7 +1,7 @@
 """Shared fixtures; integration tests need the local Postgres running."""
 
 import os
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -60,3 +60,33 @@ def bank(session: Session) -> BankModel:
     session.add(bank)
     session.commit()
     return bank
+
+
+@pytest.fixture
+def account_form(bank: BankModel) -> Callable[..., dict[str, str]]:
+    """Make the declare form's data, with overrides."""
+
+    def make(**overrides: str) -> dict[str, str]:
+        return {
+            "name": "Main account",
+            "bank_id": str(bank.id),
+            "type": "current",
+            "account_number": "12345A",
+            "opened_on": "2020-01-15",
+        } | overrides
+
+    return make
+
+
+@pytest.fixture
+def declare(
+    client: TestClient, account_form: Callable[..., dict[str, str]]
+) -> Callable[..., str]:
+    """Declare an account; return its page URL."""
+
+    def post(**overrides: str) -> str:
+        response = client.post("/accounts", data=account_form(**overrides))
+        assert response.status_code == 303
+        return response.headers["location"]
+
+    return post

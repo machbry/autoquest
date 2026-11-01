@@ -34,6 +34,23 @@ class Account:
         return self.bank.id
 
 
+class FreshnessStatus(StrEnum):
+    """How old an account's data is, against the bank's 90-day export window."""
+
+    NEVER = "never"
+    OK = "ok"
+    WARNING = "warning"
+    ALERT = "alert"
+
+
+@dataclass(frozen=True)
+class Freshness:
+    """Status, and days since the export date of the account's latest export."""
+
+    status: FreshnessStatus
+    days: int | None
+
+
 @dataclass(frozen=True)
 class AccountFields:
     """What declaring or editing an account sets (its closing date excluded)."""

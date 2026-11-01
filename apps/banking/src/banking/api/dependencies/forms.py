@@ -1,8 +1,15 @@
-"""Submitted form data."""
+"""Submitted form data and uploaded files."""
 
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
+from starlette.datastructures import UploadFile
+
+from banking.services.imports.import_service import MAX_FILE_BYTES
+
+# Refused before the body is read; smaller bodies are cut, so the service can tell the
+# user their file is too large.
+MAX_UPLOAD_BYTES = 2 * MAX_FILE_BYTES
 
 
 async def form_data(request: Request) -> dict[str, Any]:
@@ -18,4 +25,19 @@ async def form_data(request: Request) -> dict[str, Any]:
     return data
 
 
+async def uploaded_file(request: Request) -> bytes:
+    """The `file` field's content, cut one byte past what an import accepts.
+
+    Empty if no file was sent.
+    """
+    if int(request.headers.get("content-length") or 0) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large")
+    form = await request.form(max_files=1, max_fields=1)
+    file = form.get("file")
+    if not isinstance(file, UploadFile):
+        return b""
+    return await file.read(MAX_FILE_BYTES + 1)
+
+
 FormDep = Annotated[dict[str, Any], Depends(form_data)]
+UploadDep = Annotated[bytes, Depends(uploaded_file)]

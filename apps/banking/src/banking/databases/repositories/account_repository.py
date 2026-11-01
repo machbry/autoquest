@@ -28,6 +28,16 @@ class AccountRepository(Repository[AccountModel, Account]):
             closed_on=row.closed_on,
         )
 
+    def get_for_update(self, account_id: int) -> Account | None:
+        """The account, locked until the transaction ends; None if there is none."""
+        row = self.session.scalars(
+            select(AccountModel)
+            .options(joinedload(AccountModel.bank))
+            .filter_by(id=account_id)
+            .with_for_update(of=AccountModel)
+        ).one_or_none()
+        return None if row is None else self.to_domain(row)
+
     def list(self) -> Sequence[Account]:
         """Every account with its bank, open ones first, then by name."""
         rows = self.session.scalars(

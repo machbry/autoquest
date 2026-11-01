@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import freshness_label %}
 {% block title %}Accounts · Banking{% endblock %}
 {% block content %}
 <h1>Accounts</h1>
@@ -6,15 +7,16 @@
 {% if accounts %}
 <table>
   <thead>
-    <tr><th>Name</th><th>Bank</th><th>Type</th><th>Status</th></tr>
+    <tr><th>Name</th><th>Bank</th><th>Type</th><th>Status</th><th>Data</th></tr>
   </thead>
   <tbody>
-    {% for account in accounts %}
+    {% for account, freshness in accounts %}
     <tr>
       <td><a href="/accounts/{{ account.id }}">{{ account.name }}</a></td>
       <td>{{ account.bank.name }}</td>
       <td>{{ type_labels[account.type] }}</td>
       <td>{% if account.closed_on %}<span class="muted">Closed on {{ account.closed_on }}</span>{% else %}Open{% endif %}</td>
+      <td>{{ freshness_label(freshness) }}</td>
     </tr>
     {% endfor %}
   </tbody>
