@@ -8,7 +8,8 @@
 A Postgres database is the single store for all banking data. A single FastAPI + HTMX web
 app covers every user flow, from data editing to import, labelling and analysis. dbt turns the stored data into analysis models. Scheduled and
 on-demand work runs as GitHub Actions jobs. The web app's code follows the three layers
-(api → services → databases) of the [root CLAUDE.md](../../../CLAUDE.md#app-code-structure).
+(api → services → databases, around shared domains) of the
+[root CLAUDE.md](../../../CLAUDE.md#app-code-structure).
 
 ![Banking technical architecture](architecture.png)
 

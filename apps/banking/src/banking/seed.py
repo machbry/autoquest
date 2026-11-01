@@ -11,9 +11,10 @@ from faker import Faker
 from sqlalchemy.orm import Session
 
 from banking.databases.engine import get_engine
-from banking.databases.models import AccountType
-from banking.services.accounts.account_service import AccountFields, AccountService
-from banking.services.banks.bank_service import BankFields, BankService
+from banking.domains.account import AccountFields, AccountType
+from banking.domains.bank import BankFields
+from banking.services.accounts.account_service import AccountService
+from banking.services.banks.bank_service import BankService
 
 logger = logging.getLogger(__name__)
 

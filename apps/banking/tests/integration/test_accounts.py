@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
-from banking.databases.models import Account
+from banking.databases.models import AccountModel
 
 MAX_ID = 2**31 - 1  # largest INTEGER
 
@@ -35,11 +35,11 @@ def declare(client, account_form):
 
 # The local database also holds seed data: compare counts, don't expect an empty table.
 def count_accounts(session):
-    return session.scalar(select(func.count()).select_from(Account))
+    return session.scalar(select(func.count()).select_from(AccountModel))
 
 
 def stored_number(session, name="Main account"):
-    return session.scalar(select(Account.account_number).filter_by(name=name))
+    return session.scalar(select(AccountModel.account_number).filter_by(name=name))
 
 
 def close(client, url, closed_on):

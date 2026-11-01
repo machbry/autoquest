@@ -1,26 +1,17 @@
-"""Accounts and their types."""
+"""Table of accounts."""
 
 from datetime import date
-from enum import StrEnum
 
 from sqlalchemy import CheckConstraint, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from banking.databases.models.bank import Bank
+from banking.databases.models.bank import BankModel
 from banking.databases.models.base import Base, Timestamps
+from banking.domains.account import AccountType
 
 
-class AccountType(StrEnum):
-    """Kinds of account; fixed, because the analysis relies on them."""
-
-    CURRENT = "current"
-    SAVINGS = "savings"
-    PEA = "pea"
-    LIFE_INSURANCE = "life_insurance"
-
-
-class Account(Timestamps, Base):
-    """A bank account; closing it keeps its history, deleting it removes it."""
+class AccountModel(Timestamps, Base):
+    """Row of `accounts`."""
 
     __tablename__ = "accounts"
     __table_args__ = (
@@ -46,6 +37,6 @@ class Account(Timestamps, Base):
     opened_on: Mapped[date]
     closed_on: Mapped[date | None]
 
-    # One-way on purpose: with a Bank.accounts collection, deleting a bank would make
-    # the ORM null the accounts' bank_id instead of letting the FK refuse the delete.
-    bank: Mapped[Bank] = relationship()
+    # One-way on purpose: with a BankModel.accounts collection, deleting a bank would
+    # make the ORM null the accounts' bank_id instead of letting the FK refuse it.
+    bank: Mapped[BankModel] = relationship()
