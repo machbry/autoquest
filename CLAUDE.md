@@ -172,6 +172,8 @@ HTML routes (forms can only `GET` and `POST`):
   - Summary: imperative, at most 72 characters, no final period. Mark breaking changes with `!`.
   - Every commit on a branch follows this format, since it lands in `main` history as is.
     The PR title uses it too.
+- **Dependabot PRs** keep Dependabot's branch names (exempt from the branch check); their
+  titles and commits use `build(repo)`, or `ci(ci)` for GitHub Actions.
 
 ## Issues
 Every issue gets exactly one scope label and one type label, so issues can be filtered by either:
@@ -220,21 +222,26 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
 - CI authenticates to GCP through Workload Identity Federation, never service account keys;
   to other providers (Neon, MotherDuck) with scoped API tokens stored in GitHub Actions
   secrets.
-- Dependencies are pinned (`uv.lock`) and scanned for vulnerabilities.
+- Dependencies are pinned (`uv.lock`, image tags, action SHAs), scanned in CI
+  (`uv audit`) and updated weekly by Dependabot.
+- Secrets pushed to GitHub are blocked by secret scanning push protection.
 - Personal data: collect as little as possible, never commit it, never log it.
 - Each PR description states the feature's security impact.
 
 ## Environments and CI/CD
 - `loc`: the full stack in Docker Compose. `prd`: the cloud services above.
 - **On PR:** format check, lint, tests with coverage, `terraform fmt`/`validate`/`plan`,
-  dependency and secret scans.
+  dependency scan (`uv audit`).
 - **On merge to `main`:** build images, `terraform apply`, deploy to `prd`.
+- **Weekly:** Dependabot update PRs (`.github/dependabot.yml`).
 - **Manual steps** (the only ones):
   - running `infra/bootstrap` once (project, state bucket, CI identity);
   - creating the Neon and MotherDuck accounts and their first API tokens: neither provider
     can create an account or its first token through an API;
-  - GitHub repository settings (ruleset on `main`, labels), set in the GitHub UI: managing
-    them as code needs a long-lived GitHub token, not worth the risk for a solo repo.
+  - GitHub repository settings (ruleset on `main`, labels; under Settings → Advanced
+    Security: secret protection with push protection, Dependabot alerts and security
+    updates), set in the GitHub UI: managing them as code needs a long-lived GitHub token,
+    not worth the risk for a solo repo.
 
 ## Local development
 - Prerequisites: Docker, uv (and Terraform for infra work).
