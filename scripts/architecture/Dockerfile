@@ -1,5 +1,5 @@
 # Renders apps/*/docs/architecture.py to PNG. Graphviz lives here so devs only need Docker.
-FROM ghcr.io/astral-sh/uv:0.13.1-python3.14-trixie-slim
+FROM ghcr.io/astral-sh/uv:0.13.6-python3.14-trixie-slim
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends graphviz \
