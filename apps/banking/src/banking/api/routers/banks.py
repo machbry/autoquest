@@ -1,4 +1,4 @@
-"""Bank pages: list, add, rename and delete."""
+"""Bank pages: list, create, update (rename) and delete."""
 
 from typing import Any
 
@@ -10,7 +10,7 @@ from banking.api.dependencies.services import BankServiceDep
 from banking.api.rendering import render, validate
 from banking.api.schemas.banks import BankForm
 from banking.api.schemas.common import Id
-from banking.services.banks.bank_service import BankService
+from banking.services.banks.bank_service import BankFields, BankService
 from banking.services.errors import ConflictError, InvalidError
 
 router = APIRouter(prefix="/banks")
@@ -30,17 +30,17 @@ def _render_list(
 
 @router.get("", response_class=HTMLResponse)
 def list_banks(request: Request, banks: BankServiceDep) -> HTMLResponse:
-    """Every bank with how many accounts use it, and the form to add one."""
+    """Every bank with how many accounts use it, and the form to create one."""
     return _render_list(request, banks)
 
 
 @router.post("")
-def add_bank(request: Request, banks: BankServiceDep, data: FormDep) -> Response:
-    """Add a bank; re-render the list with errors if invalid."""
+def create_bank(request: Request, banks: BankServiceDep, data: FormDep) -> Response:
+    """Create a bank; re-render the list (holding its form) with errors if invalid."""
     form, errors = validate(BankForm, data)
     if form is not None:
         try:
-            banks.add(form.name)
+            banks.create(BankFields(**form.model_dump()))
         except InvalidError as exc:
             errors = {exc.field: exc.message}
         else:
@@ -50,20 +50,20 @@ def add_bank(request: Request, banks: BankServiceDep, data: FormDep) -> Response
 
 @router.get("/{bank_id}/edit", response_class=HTMLResponse)
 def edit_bank(request: Request, banks: BankServiceDep, bank_id: Id) -> HTMLResponse:
-    """Form to rename a bank."""
+    """Form to update (rename) a bank, prefilled with its current name."""
     bank = banks.get(bank_id)
     return render(request, "banks/form.html", bank=bank, values=bank)
 
 
 @router.post("/{bank_id}")
-def rename_bank(
+def update_bank(
     request: Request, banks: BankServiceDep, data: FormDep, bank_id: Id
 ) -> Response:
-    """Rename a bank; re-render the form with errors if invalid."""
+    """Update (rename) a bank; re-render the form with errors if invalid."""
     form, errors = validate(BankForm, data)
     if form is not None:
         try:
-            banks.rename(bank_id, form.name)
+            banks.update(bank_id, BankFields(**form.model_dump()))
         except InvalidError as exc:
             errors = {exc.field: exc.message}
         else:
@@ -76,7 +76,7 @@ def rename_bank(
 
 @router.post("/{bank_id}/delete")
 def delete_bank(request: Request, banks: BankServiceDep, bank_id: Id) -> Response:
-    """Delete a bank; refused while an account uses it."""
+    """Delete a bank; refused (409) while an account uses it."""
     try:
         banks.delete(bank_id)
     except ConflictError as exc:

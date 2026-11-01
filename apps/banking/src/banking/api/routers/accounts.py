@@ -16,7 +16,7 @@ from banking.services.accounts.account_service import AccountFields
 from banking.services.banks.bank_service import BankService
 from banking.services.errors import InvalidError
 
-router = APIRouter()
+router = APIRouter(prefix="/accounts")
 
 TYPE_LABELS = {
     AccountType.CURRENT: "Current",
@@ -57,7 +57,7 @@ def _render_detail(
     )
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("", response_class=HTMLResponse)
 def list_accounts(request: Request, accounts: AccountServiceDep) -> HTMLResponse:
     """Every account, open ones first; closed accounts stay listed."""
     return render(
@@ -68,13 +68,13 @@ def list_accounts(request: Request, accounts: AccountServiceDep) -> HTMLResponse
     )
 
 
-@router.get("/accounts/new", response_class=HTMLResponse)
+@router.get("/new", response_class=HTMLResponse)
 def new_account(request: Request, banks: BankServiceDep) -> HTMLResponse:
     """Form to declare an account."""
     return _render_form(request, banks)
 
 
-@router.post("/accounts")
+@router.post("")
 def create_account(
     request: Request,
     accounts: AccountServiceDep,
@@ -93,7 +93,7 @@ def create_account(
     return _render_form(request, banks, None, 422, values=data, errors=errors)
 
 
-@router.get("/accounts/{account_id}", response_class=HTMLResponse)
+@router.get("/{account_id}", response_class=HTMLResponse)
 def show_account(
     request: Request, accounts: AccountServiceDep, account_id: Id
 ) -> HTMLResponse:
@@ -103,7 +103,7 @@ def show_account(
     )
 
 
-@router.get("/accounts/{account_id}/edit", response_class=HTMLResponse)
+@router.get("/{account_id}/edit", response_class=HTMLResponse)
 def edit_account(
     request: Request, accounts: AccountServiceDep, banks: BankServiceDep, account_id: Id
 ) -> HTMLResponse:
@@ -112,7 +112,7 @@ def edit_account(
     return _render_form(request, banks, account, values=account)
 
 
-@router.post("/accounts/{account_id}")
+@router.post("/{account_id}")
 def update_account(
     request: Request,
     accounts: AccountServiceDep,
@@ -133,7 +133,7 @@ def update_account(
     return _render_form(request, banks, account, 422, values=data, errors=errors)
 
 
-@router.post("/accounts/{account_id}/close")
+@router.post("/{account_id}/close")
 def close_account(
     request: Request, accounts: AccountServiceDep, data: FormDep, account_id: Id
 ) -> Response:
@@ -151,8 +151,8 @@ def close_account(
     return _render_detail(request, account, 422, closed_on=closed_on, errors=errors)
 
 
-@router.post("/accounts/{account_id}/delete")
+@router.post("/{account_id}/delete")
 def delete_account(accounts: AccountServiceDep, account_id: Id) -> Response:
     """Delete an account and all its history."""
     accounts.delete(account_id)
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/accounts", status_code=303)

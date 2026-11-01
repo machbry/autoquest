@@ -34,10 +34,10 @@ def test_declare_then_delete_a_bank_and_an_account():
         page = client.get(account_url).text
         assert account in page
         assert bank in page
-        assert account in client.get("/").text
+        assert account in client.get("/accounts").text
 
         # Cleaning up is part of the journey: the account, then its now unused bank.
         assert client.post(f"{account_url}/delete").status_code == 303
-        assert account not in client.get("/").text
+        assert account not in client.get("/accounts").text
         assert client.post(f"/banks/{bank_id}/delete").status_code == 303
         assert bank not in client.get("/banks").text

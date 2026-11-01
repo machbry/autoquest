@@ -49,10 +49,17 @@ def close(client, url, closed_on):
 def test_declared_account_is_listed(client, declare):
     url = declare()
 
-    assert "Main account" in client.get("/").text
+    assert "Main account" in client.get("/accounts").text
     page = client.get(url).text
     assert "Test bank" in page
     assert "12345A" in page
+
+
+def test_home_redirects_to_the_accounts_list(client):
+    response = client.get("/")
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/accounts"
 
 
 def test_account_form_offers_the_banks(client, bank):
@@ -117,7 +124,7 @@ def test_html_in_a_name_is_escaped(client, declare):
     url = declare(name="<script>x</script>")
 
     assert "<script>x" not in client.get(url).text
-    assert "&lt;script&gt;x" in client.get("/").text
+    assert "&lt;script&gt;x" in client.get("/accounts").text
 
 
 def test_edit_changes_the_account(client, declare, account_form):
@@ -146,7 +153,7 @@ def test_closed_account_stays_visible(client, declare):
 
     assert close(client, url, "2026-03-31").status_code == 303
 
-    assert "Closed on 2026-03-31" in client.get("/").text
+    assert "Closed on 2026-03-31" in client.get("/accounts").text
     page = client.get(url).text
     assert "Main account" in page
     assert "Close account" not in page
@@ -194,8 +201,9 @@ def test_deleted_account_is_gone(client, session, declare):
     response = client.post(f"{url}/delete")
 
     assert response.status_code == 303
+    assert response.headers["location"] == "/accounts"
     assert count_accounts(session) == before - 1
-    assert "Main account" not in client.get("/").text
+    assert "Main account" not in client.get("/accounts").text
     assert client.get(url).status_code == 404
 
 

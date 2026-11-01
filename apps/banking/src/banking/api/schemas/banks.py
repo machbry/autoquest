@@ -4,7 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class BankForm(BaseModel):
-    """Fields of the add and rename forms."""
+    """Fields of the create and update (rename) forms."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
