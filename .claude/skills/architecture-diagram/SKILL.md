@@ -26,24 +26,29 @@ Don't run `architecture.py` directly or install Graphviz locally.
 ## Conventions
 - Start from `with app_diagram("<App name>"):`. Don't pass layout attributes in app files:
   change `app_diagram` instead, so every app stays consistent.
-- One `Cluster` per runtime (`Cloud Run`, `Postgres: Neon`, `GitHub Actions jobs`...).
+- One `Cluster` per provider, named after it: `Google Cloud`, `Neon`, `GitHub`,
+  `MotherDuck`. Actors (the user) stay outside any cluster.
+- A node's icon shows its **technology**, not the service hosting it. When the icon doesn't
+  show the service, the label's second line names it: `Fastapi("Web app\nCloud Run")`,
+  `Dbt("Analytics\nGitHub Actions")`. No second line when the node is the service itself
+  (`GCS("Cloud Storage")`) or the cluster already says it (Neon schemas).
 - Edges only through the helpers: `uses()` (grey: a client calling a service),
   `reads_writes()` (blue), `reads()` (green). Write `src >> reads() >> store`.
 - Planned components: `later("Label")` on the node and `planned=True` on each of its edges
   (dashed).
-- Node classes for the stack:
+- Node classes by technology:
 
-  | Component | Class |
+  | Technology | Class |
   | --- | --- |
   | User | `diagrams.onprem.client.User` |
-  | FastAPI web app | `diagrams.programming.framework.Fastapi` |
-  | Other Cloud Run service | `diagrams.gcp.compute.Run` |
-  | Postgres (Neon), one node per schema | `diagrams.onprem.database.Postgresql` |
-  | GitHub Actions job | `diagrams.onprem.ci.GithubActions` |
-  | dbt job | `diagrams.onprem.analytics.Dbt` |
+  | FastAPI | `diagrams.programming.framework.Fastapi` |
+  | Python (service or job without a more specific icon) | `diagrams.programming.language.Python` |
+  | Postgres, one node per schema | `diagrams.onprem.database.Postgresql` |
+  | dbt | `diagrams.onprem.analytics.Dbt` |
+  | Terraform | `diagrams.onprem.iac.Terraform` |
+  | DuckDB (MotherDuck) | `diagrams.onprem.database.Duckdb` |
   | Cloud Storage | `diagrams.gcp.storage.GCS` |
   | Firestore | `diagrams.gcp.database.Firestore` |
-  | MotherDuck / DuckDB | `diagrams.onprem.database.Duckdb` |
 
   Anything else: search the [diagrams nodes docs](https://diagrams.mingrammer.com/docs/nodes/onprem)
   and prefer a generic node over a misleading icon.

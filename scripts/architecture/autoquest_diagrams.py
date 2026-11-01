@@ -19,7 +19,7 @@ def app_diagram(title: str) -> Diagram:
         filename="architecture",
         outformat="png",
         show=False,
-        direction="LR",
+        direction="TB",
         graph_attr={
             "fontsize": "20",
             "labelloc": "t",
