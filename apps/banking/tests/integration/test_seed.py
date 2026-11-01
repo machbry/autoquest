@@ -6,7 +6,7 @@ from banking.databases.models import (
     ImportModel,
     OperationModel,
 )
-from banking.seed import ACCOUNTS, BANKS, EXPORT_DATES, IMPORTED_ACCOUNT, seed
+from banking.tools.seed import ACCOUNTS, BANKS, EXPORT_DATES, IMPORTED_ACCOUNT, seed
 
 MODELS = (BankModel, AccountModel, ImportModel, OperationModel)
 

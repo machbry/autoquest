@@ -11,9 +11,9 @@ from sqlalchemy.exc import IntegrityError
 from banking.api.schemas.common import MAX_ID
 from banking.databases.models import ImportModel, OperationModel
 from banking.domains.operation import OperationFields
-from banking.fakes import build_export, fake_operations
 from banking.services.imports.banque_postale_csv import FIRST_ROW_LINE
 from banking.services.imports.import_service import MAX_FILE_BYTES
+from banking.tools.fakes import build_export, fake_operations
 
 NUMBER = "12345A"  # the `declare` fixture's account number
 TODAY = date.today()

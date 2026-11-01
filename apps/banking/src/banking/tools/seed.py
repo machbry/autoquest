@@ -1,4 +1,4 @@
-"""Deterministic fake data for the local stack: `python -m banking.seed`.
+"""Deterministic fake data for the local stack: `python -m banking.tools.seed`.
 
 Dev only: Faker comes from the dev dependency group, which the prd image doesn't
 install. It writes through the services, like the app. Re-running it adds nothing.
@@ -13,10 +13,10 @@ from sqlalchemy.orm import Session
 from banking.databases.engine import get_engine
 from banking.domains.account import Account, AccountFields, AccountType
 from banking.domains.bank import BankFields
-from banking.fakes import build_export, fake_operations
 from banking.services.accounts.account_service import AccountService
 from banking.services.banks.bank_service import BankService
 from banking.services.imports.import_service import ImportService
+from banking.tools.fakes import build_export, fake_operations
 
 logger = logging.getLogger(__name__)
 

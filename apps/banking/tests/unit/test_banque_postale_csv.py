@@ -5,8 +5,8 @@ import pytest
 
 from banking.domains.errors import InvalidError
 from banking.domains.operation import OperationFields
-from banking.fakes import build_export
 from banking.services.imports.banque_postale_csv import FIRST_ROW_LINE, parse
+from banking.tools.fakes import build_export
 
 EXPORTED_ON = date(2026, 10, 31)
 
