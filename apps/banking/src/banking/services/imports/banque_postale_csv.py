@@ -26,7 +26,7 @@ COLUMNS = "Date;Libellé;Montant(EUROS)"
 # Header lines, the blank line, then the column header.
 FIRST_ROW_LINE = len(HEADER_LABELS) + 3
 CURRENCY = "euros"
-NOT_AN_EXPORT = "This file isn't a Banque Postale CSV export."
+NOT_AN_EXPORT = "This file isn't a La Banque Postale CSV file."
 MAX_DESCRIPTION = 200
 # At most 10 integer digits: amounts are NUMERIC(12, 2).
 AMOUNT = re.compile(r"-?\d{1,10},\d{2}")
@@ -74,7 +74,7 @@ def _header(lines: list[str]) -> tuple[str, date, Decimal]:
         field[1].strip() for field in fields
     )
     if currency != CURRENCY:
-        raise _invalid("Only exports in euros can be imported.")
+        raise _invalid("Only files in euros can be imported.")
     if not account_number:
         raise _invalid("Line 1: missing account number.")
     return (

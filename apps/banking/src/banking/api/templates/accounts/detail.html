@@ -5,7 +5,7 @@
 <h1>{{ account.name }}</h1>
 {% if summary %}
 <section class="summary">
-  <h2>Export imported</h2>
+  <h2>File imported</h2>
   <p>{{ summary.rows_in_file }} rows in the file: {{ summary.rows_new }} new, {{ summary.rows_known }} already known.
   {% if summary.first_operation_on %}Operations from {{ summary.first_operation_on }} to {{ summary.last_operation_on }}.{% endif %}</p>
 </section>
@@ -20,8 +20,8 @@
 </dl>
 <p><a href="/accounts/{{ account.id }}/edit">Edit</a></p>
 
-<h2>Import an export</h2>
-<p class="muted">La Banque Postale CSV export, 1 MB at most. Operations already stored are skipped.</p>
+<h2>Import operations from a file</h2>
+<p class="muted">A La Banque Postale CSV file, 1 MB at most. Operations already stored are skipped.</p>
 <form method="post" action="/accounts/{{ account.id }}/imports" enctype="multipart/form-data">
   <input type="file" name="file" accept=".csv" required>
   {{ error("file") }}
@@ -42,10 +42,10 @@
 <p class="muted">No operation yet.</p>
 {% endif %}
 
-<h2>Imports</h2>
+<h2>Imported files</h2>
 {% if imports %}
 <table>
-  <thead><tr><th>Export date</th><th>Operations from</th><th>to</th><th class="num">Rows in file</th><th class="num">New</th></tr></thead>
+  <thead><tr><th>File date</th><th>Operations from</th><th>to</th><th class="num">Rows in file</th><th class="num">New</th></tr></thead>
   <tbody>
     {% for item in imports %}
     <tr>
@@ -59,7 +59,7 @@
   </tbody>
 </table>
 {% else %}
-<p class="muted">No import yet.</p>
+<p class="muted">No file imported yet.</p>
 {% endif %}
 
 {% if not account.closed_on %}
