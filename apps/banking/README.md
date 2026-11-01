@@ -29,7 +29,7 @@ If a not-yet-merged migration was edited, reset the local database (fake data on
 | Interface | Description |
 | --- | --- |
 | `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there |
-| `POST /accounts/{id}/imports` | Import a La Banque Postale CSV export (multipart `file`, 1 MB max) from the account page, which then shows its summary, imports and operations |
+| `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary, imported files and operations |
 | `GET /banks` | Banks list; create, rename, or delete a bank no account uses |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
 | `banking` schema | Owned by Alembic (`src/banking/databases/migrations`); dbt reads it as a source |

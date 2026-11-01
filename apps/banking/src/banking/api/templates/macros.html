@@ -1,10 +1,10 @@
 {# A field's validation error, from the `errors` dict of the page. #}
 {% macro error(field) %}{% if errors[field] %}<span class="error">{{ errors[field] }}</span>{% endif %}{% endmacro %}
 
-{# How fresh an account's data is: days since its latest export's date. #}
+{# How fresh an account's data is: days since the date of its latest imported file. #}
 {% macro freshness_label(freshness) -%}
 {% if freshness.status == "never" %}<span class="muted">Never imported</span>
-{%- else %}<span class="{{ freshness.status }}">Exported {{ freshness.days }} day{{ "" if freshness.days == 1 else "s" }} ago
-{%- if freshness.status == "warning" %}: export soon{% elif freshness.status == "alert" %}: export now{% endif %}</span>
+{%- else %}<span class="{{ freshness.status }}">File dated {{ freshness.days }} day{{ "" if freshness.days == 1 else "s" }} ago
+{%- if freshness.status == "warning" %}: import a new file soon{% elif freshness.status == "alert" %}: import a new file now{% endif %}</span>
 {%- endif %}
 {%- endmacro %}

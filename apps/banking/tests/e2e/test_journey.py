@@ -57,7 +57,7 @@ def test_declare_an_account_import_its_export_then_delete_it():
         assert response.status_code == 303
         page = client.get(response.headers["location"]).text
         assert "3 rows in the file: 3 new, 0 already known." in page
-        assert "Exported 2 days ago" in page
+        assert "File dated 2 days ago" in page
         assert page.count("CB E2E SHOP") == 2
 
         # Cleaning up is part of the journey: the account, then its now unused bank.

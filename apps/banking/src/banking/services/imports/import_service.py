@@ -64,7 +64,7 @@ class ImportService:
         export = banque_postale_csv.parse(content)
         # A future date would freeze freshness: it counts from the latest export date.
         if export.export_date > date.today():
-            raise InvalidError("file", "The export date is in the future.")
+            raise InvalidError("file", "The file's date is in the future.")
         # Locked until the commit: two imports into one account would count the same
         # stored operations, and both add the same new ones.
         if (account := self.accounts.get_for_update(account_id)) is None:
@@ -72,7 +72,7 @@ class ImportService:
         if account.account_number is None:
             raise InvalidError("file", "Set this account's number before importing.")
         if export.account_number != account.account_number:
-            raise InvalidError("file", "This file is another account's export.")
+            raise InvalidError("file", "This file belongs to another account.")
 
         dates = [operation.operation_date for operation in export.operations]
         first, last = min(dates, default=None), max(dates, default=None)

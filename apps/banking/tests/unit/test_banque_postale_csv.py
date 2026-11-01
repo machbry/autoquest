@@ -118,9 +118,7 @@ def test_row_with_missing_or_extra_fields_names_its_line(row):
 
 
 def test_export_in_another_currency_is_rejected():
-    assert_rejected(
-        export(currency="dollars"), "Only exports in euros can be imported."
-    )
+    assert_rejected(export(currency="dollars"), "Only files in euros can be imported.")
 
 
 @pytest.mark.parametrize(
@@ -133,7 +131,7 @@ def test_export_in_another_currency_is_rejected():
     ],
 )
 def test_unreadable_file_is_rejected(content):
-    assert_rejected(content, "This file isn't a Banque Postale CSV export.")
+    assert_rejected(content, "This file isn't a La Banque Postale CSV file.")
 
 
 @pytest.mark.parametrize(
@@ -147,7 +145,7 @@ def test_unreadable_file_is_rejected(content):
 def test_unexpected_header_is_rejected(number, line):
     assert_rejected(
         replace_line(export(), number, line),
-        "This file isn't a Banque Postale CSV export.",
+        "This file isn't a La Banque Postale CSV file.",
     )
 
 
@@ -188,7 +186,7 @@ def test_nul_byte_is_rejected():
         export(operation()), FIRST_ROW_LINE, '31/10/2026;"A\x00";-1,00'
     )
 
-    assert_rejected(content, "This file isn't a Banque Postale CSV export.")
+    assert_rejected(content, "This file isn't a La Banque Postale CSV file.")
 
 
 def test_error_never_quotes_the_file():

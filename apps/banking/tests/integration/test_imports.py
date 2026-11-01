@@ -128,7 +128,7 @@ def test_export_of_another_account_is_rejected(client, session, account_url):
     content = export([operation()], number="99999Z")
 
     assert_rejected(
-        client, session, account_url, content, "This file is another account's export."
+        client, session, account_url, content, "This file belongs to another account."
     )
 
 
@@ -165,9 +165,9 @@ def test_malformed_amount_is_rejected_with_its_line(client, session, account_url
 @pytest.mark.parametrize(
     ("content", "message"),
     [
-        (b"\x89PNG\r\n\x1a\n\x00", "This file isn't a Banque Postale CSV export."),
-        (b"", "This file isn't a Banque Postale CSV export."),
-        (export([operation()], currency="dollars"), "Only exports in euros"),
+        (b"\x89PNG\r\n\x1a\n\x00", "This file isn't a La Banque Postale CSV file."),
+        (b"", "This file isn't a La Banque Postale CSV file."),
+        (export([operation()], currency="dollars"), "Only files in euros"),
         (b"x" * (MAX_FILE_BYTES + 1), "The file is over 1 MB."),
         # Regression: csv.Error on a stray carriage return answered 500.
         (
@@ -175,7 +175,7 @@ def test_malformed_amount_is_rejected_with_its_line(client, session, account_url
             f"Line {FIRST_ROW_LINE}: malformed line.",
         ),
         # Regression: a future date made freshness negative, and OK, for good.
-        (export([], TODAY + timedelta(days=1)), "The export date is in the future."),
+        (export([], TODAY + timedelta(days=1)), "The file's date is in the future."),
     ],
 )
 def test_unreadable_or_unsupported_file_is_rejected(
@@ -245,9 +245,9 @@ def test_amounts_are_stored_exact_to_the_cent(client, session, account_url):
 @pytest.mark.parametrize(
     ("days", "label"),
     [
-        (60, 'class="ok">Exported 60 days ago<'),
-        (61, 'class="warning">Exported 61 days ago: export soon<'),
-        (76, 'class="alert">Exported 76 days ago: export now<'),
+        (60, 'class="ok">File dated 60 days ago<'),
+        (61, 'class="warning">File dated 61 days ago: import a new file soon<'),
+        (76, 'class="alert">File dated 76 days ago: import a new file now<'),
     ],
 )
 def test_freshness_counts_days_since_the_latest_export(
@@ -264,7 +264,7 @@ def test_older_export_does_not_reset_freshness(client, account_url):
 
     imported(client, account_url, export([operation(100)], TODAY - timedelta(days=95)))
 
-    assert "Exported 76 days ago" in client.get(account_url).text
+    assert "File dated 76 days ago" in client.get(account_url).text
 
 
 def test_account_never_imported_says_so(client, account_url):
@@ -275,7 +275,7 @@ def test_unknown_import_id_shows_no_summary(client, account_url):
     page = client.get(f"{account_url}?import_id={MAX_ID}")
 
     assert page.status_code == 200
-    assert "Export imported" not in page.text
+    assert "File imported" not in page.text
 
 
 def test_deleting_an_account_deletes_its_imports_and_operations(
