@@ -45,6 +45,20 @@ services:
       banking-migrate:
         condition: service_completed_successfully
 
+  # Deterministic fake data. banking-web doesn't wait for it, so `up --wait banking-web`
+  # (tests, CI) leaves the database empty.
+  banking-seed:
+    build:
+      context: .
+      dockerfile: apps/banking/Dockerfile
+      target: dev
+    image: autoquest-banking-dev
+    command: ["python", "-m", "banking.seed"]
+    environment: *banking-env
+    depends_on:
+      banking-migrate:
+        condition: service_completed_successfully
+
   # Dev tool, not part of the stack: docker compose run --rm --build architecture [app ...]
   architecture:
     build: scripts/architecture

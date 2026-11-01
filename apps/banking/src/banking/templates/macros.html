@@ -1,0 +1,2 @@
+{# A field's validation error, from the `errors` dict of the page. #}
+{% macro error(field) %}{% if errors[field] %}<span class="error">{{ errors[field] }}</span>{% endif %}{% endmacro %}

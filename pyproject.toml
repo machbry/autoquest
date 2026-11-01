@@ -7,7 +7,7 @@ requires-python = ">=3.12"
 dependencies = ["banking"]
 
 [dependency-groups]
-dev = ["httpx", "mypy", "pre-commit", "pytest", "pytest-cov", "ruff"]
+dev = ["faker", "httpx", "mypy", "pre-commit", "pytest", "pytest-cov", "ruff"]
 
 [tool.uv]
 package = false

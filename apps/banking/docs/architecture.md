@@ -34,7 +34,15 @@ mark planned components. Source: [architecture.py](architecture.py).
 - **Contract**: dbt declares the `banking` tables as sources and holds tests on them.
 
 ## Data model
-TODO: defined with #12 and #13.
+Defined in [models.py](../src/banking/models.py); constraints are named `uq_`/`ck_` +
+table + column/rule, so the app can map a violation to the field at fault.
+
+- **`accounts`**: `name` (unique), `bank` and `type` (fixed lists, `CHECK`),
+  `account_number` (unique, optional), `opened_on`, `closed_on`
+  (`CHECK closed_on >= opened_on`). Closing keeps the account and its history; there is no
+  reopen or delete.
+
+TODO: imports and operations (#12), labels (#13).
 
 ## Security
 TODO: defined with #14.

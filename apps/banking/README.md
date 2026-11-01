@@ -7,22 +7,29 @@ Product discovery notes: [docs/discovery.md](docs/discovery.md).
 Technical architecture: [docs/architecture.md](docs/architecture.md).
 
 ## Run locally
-`docker compose up --build banking-web` (from the repo root) starts Postgres, applies the
-migrations and serves the app on <http://127.0.0.1:8000>. Tests:
-`docker compose up -d banking-db`, then `uv run pytest apps/banking --cov=banking`.
+From the repo root, `docker compose up --build` starts Postgres, applies the migrations,
+loads deterministic fake data (`banking-seed`, safe to re-run) and serves the app on
+<http://127.0.0.1:8000>.
+
+Tests need the stack, without the fake data: `docker compose up -d --build --wait
+banking-web`, then `uv run pytest apps/banking --cov=banking`. Integration tests roll back
+their writes; the e2e test leaves an `E2E …` account behind.
 
 ## Configuration
 | Variable | Purpose |
 | --- | --- |
 | `BANKING_DB_URL` | Postgres URL, `postgresql+psycopg://…`; local default in [.env.example](.env.example) |
+| `BANKING_E2E_URL` | Tests only: web app the e2e tests target (default `http://127.0.0.1:8000`) |
 
 ## Interfaces
 | Interface | Description |
 | --- | --- |
+| `GET /` | Accounts list; declare (`/accounts/new`), edit and close accounts from there |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
 | `banking` schema | Owned by Alembic (`src/banking/migrations`); dbt reads it as a source |
 
-New migration: `uv run alembic -c apps/banking/alembic.ini revision -m "<summary>"`.
+New migration, generated from `models.py` (review it before committing):
+`uv run alembic -c apps/banking/alembic.ini revision --autogenerate -m "<Summary.>"`.
 
 ## Roadmap
 **Objective:** every month, see where my money goes, my savings rate and my net worth across

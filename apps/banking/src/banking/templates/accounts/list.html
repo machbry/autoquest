@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Accounts · Banking{% endblock %}
+{% block content %}
+<h1>Accounts</h1>
+<p><a href="/accounts/new">Declare an account</a></p>
+{% if accounts %}
+<table>
+  <thead>
+    <tr><th>Name</th><th>Bank</th><th>Type</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    {% for account in accounts %}
+    <tr>
+      <td><a href="/accounts/{{ account.id }}">{{ account.name }}</a></td>
+      <td>{{ bank_labels[account.bank] }}</td>
+      <td>{{ type_labels[account.type] }}</td>
+      <td>{% if account.closed_on %}<span class="muted">Closed on {{ account.closed_on }}</span>{% else %}Open{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No account yet.</p>
+{% endif %}
+{% endblock %}
