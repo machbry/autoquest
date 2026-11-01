@@ -13,9 +13,10 @@ services:
       - banking-db:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "banking"]
-      interval: 2s
-      timeout: 2s
-      retries: 15
+      # Probe every second while starting (for depends_on and --wait), then hourly: no log spam.
+      start_period: 30s
+      start_interval: 1s
+      interval: 1h
 
   banking-migrate:
     build:
@@ -36,9 +37,10 @@ services:
       - "127.0.0.1:8000:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz')"]
-      interval: 2s
-      timeout: 2s
-      retries: 15
+      # Probe every second while starting (for depends_on and --wait), then hourly: no log spam.
+      start_period: 30s
+      start_interval: 1s
+      interval: 1h
     depends_on:
       banking-migrate:
         condition: service_completed_successfully
