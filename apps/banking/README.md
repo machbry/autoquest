@@ -30,7 +30,7 @@ If a not-yet-merged migration was edited, reset the local database (fake data on
 | `GET /` | Accounts list; declare (`/accounts/new`), edit, close or delete accounts from there |
 | `GET /banks` | Banks list; add, rename, or delete a bank no account uses |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
-| `banking` schema | Owned by Alembic (`src/banking/migrations`); dbt reads it as a source |
+| `banking` schema | Owned by Alembic (`src/banking/databases/migrations`); dbt reads it as a source |
 
 New migration, generated from `models.py` (review it before committing):
 `uv run alembic -c apps/banking/alembic.ini revision --autogenerate -m "<Summary.>"`.

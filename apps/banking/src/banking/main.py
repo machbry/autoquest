@@ -2,17 +2,15 @@
 
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Annotated
 
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.orm import Session
 
-from banking import accounts, banks
+from banking.api.routers import accounts, banks, health
 from banking.config import get_settings
-from banking.db import get_session
+from banking.databases.repositories.base import ConstraintViolation
+from banking.services.errors import ConflictError, NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +23,8 @@ def create_app() -> FastAPI:
     """Build the app; fails fast if the configuration is invalid."""
     get_settings()
     app = FastAPI(title="banking", docs_url=None, redoc_url=None, openapi_url=None)
-    app.include_router(accounts.router)
-    app.include_router(banks.router)
+    for module in (accounts, banks, health):
+        app.include_router(module.router)
 
     @app.middleware("http")
     async def refuse_cross_site(
@@ -44,24 +42,34 @@ def create_app() -> FastAPI:
             return PlainTextResponse("Cross-site request refused", status_code=403)
         return await call_next(request)
 
+    @app.exception_handler(NotFoundError)
+    async def not_found(request: Request, exc: NotFoundError) -> Response:
+        """Answer 404 for an item that doesn't exist."""
+        return PlainTextResponse("Not found", status_code=404)
+
+    @app.exception_handler(ConflictError)
+    async def conflict(request: Request, exc: ConflictError) -> Response:
+        """Answer 409 when a router didn't handle a conflict itself."""
+        return PlainTextResponse(exc.message, status_code=409)
+
+    # Postgres messages quote the values at fault (names, account numbers), which must
+    # never reach the logs: database errors are logged by code only.
+    @app.exception_handler(ConstraintViolation)
+    async def unexpected_constraint(
+        request: Request, exc: ConstraintViolation
+    ) -> Response:
+        """Log a constraint no service expected by its name only."""
+        logger.error("constraint %s broken on %s", exc.constraint, request.url.path)
+        return PlainTextResponse("Database error", status_code=500)
+
     @app.exception_handler(DBAPIError)
     async def database_error(request: Request, exc: DBAPIError) -> Response:
-        """Log a database error by its SQLSTATE code only.
-
-        Postgres messages quote the values at fault (names, account numbers), which
-        must never reach the logs.
-        """
+        """Log a database error by its SQLSTATE code only."""
         sqlstate = getattr(exc.orig, "sqlstate", None)
         logger.error(
             "database error %s on %s %s", sqlstate, request.method, request.url.path
         )
         return PlainTextResponse("Database error", status_code=500)
-
-    @app.get("/healthz")
-    def healthz(session: Annotated[Session, Depends(get_session)]) -> dict[str, str]:
-        """Report that the app is up and the database answers."""
-        session.execute(text("SELECT 1"))
-        return {"status": "ok"}
 
     return app
 

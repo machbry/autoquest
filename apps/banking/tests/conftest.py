@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 
-from banking.models import Bank
+from banking.databases.models import Bank
 
 # Default to the docker-compose database, before the app reads its settings.
 # 127.0.0.1, not localhost: on Windows localhost tries IPv6 first and hangs.
@@ -45,7 +45,7 @@ def session(engine: Engine) -> Iterator[Session]:
 def client(session: Session) -> TestClient:
     """Client of an app whose requests all use the test session."""
     # Imported late: the app reads its settings, set above, at import time.
-    from banking.db import get_session
+    from banking.api.dependencies.database import get_session
     from banking.main import create_app
 
     app = create_app()

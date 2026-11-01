@@ -1,45 +1,13 @@
-"""SQLAlchemy models of the `banking` schema; migrations are generated from them."""
+"""Accounts and their types."""
 
-from datetime import date, datetime
+from datetime import date
 from enum import StrEnum
 
-from sqlalchemy import (
-    CheckConstraint,
-    DateTime,
-    Enum,
-    ForeignKey,
-    MetaData,
-    String,
-    func,
-)
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy import CheckConstraint, Enum, ForeignKey, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from banking.db import SCHEMA
-
-# Named constraints, so a violation can be mapped back to the form field that caused it.
-NAMING_CONVENTION = {
-    "pk": "pk_%(table_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s",
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-}
-
-
-class Base(DeclarativeBase):
-    """Base class of every banking model."""
-
-    metadata = MetaData(schema=SCHEMA, naming_convention=NAMING_CONVENTION)
-    # Timestamps are stored in UTC; business dates are plain `date` columns.
-    type_annotation_map = {datetime: DateTime(timezone=True)}
-
-
-class Timestamps:
-    """`created_at` and `updated_at`, set by the database."""
-
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=func.now()
-    )
+from banking.databases.models.bank import Bank
+from banking.databases.models.base import Base, Timestamps
 
 
 class AccountType(StrEnum):
@@ -49,15 +17,6 @@ class AccountType(StrEnum):
     SAVINGS = "savings"
     PEA = "pea"
     LIFE_INSURANCE = "life_insurance"
-
-
-class Bank(Timestamps, Base):
-    """A bank; it can't be deleted while an account uses it."""
-
-    __tablename__ = "banks"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True)
 
 
 class Account(Timestamps, Base):

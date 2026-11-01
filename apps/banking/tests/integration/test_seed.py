@@ -1,6 +1,6 @@
 from sqlalchemy import func, select
 
-from banking.models import Account, Bank
+from banking.databases.models import Account, Bank
 from banking.seed import ACCOUNTS, BANKS, seed
 
 
