@@ -1,4 +1,48 @@
+# Local stack (`loc`). Ports bind to 127.0.0.1: nothing is reachable from the network.
 services:
+  banking-db:
+    image: postgres:17
+    environment:
+      # Local-only credentials, matching apps/banking/.env.example.
+      POSTGRES_USER: banking
+      POSTGRES_PASSWORD: banking
+      POSTGRES_DB: banking
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - banking-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "banking"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  banking-migrate:
+    build:
+      context: .
+      dockerfile: apps/banking/Dockerfile
+    image: autoquest-banking
+    command: ["alembic", "upgrade", "head"]
+    environment: &banking-env
+      BANKING_DB_URL: postgresql+psycopg://banking:banking@banking-db:5432/banking
+    depends_on:
+      banking-db:
+        condition: service_healthy
+
+  banking-web:
+    image: autoquest-banking
+    environment: *banking-env
+    ports:
+      - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://127.0.0.1:8000/healthz')"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    depends_on:
+      banking-migrate:
+        condition: service_completed_successfully
+
   # Dev tool, not part of the stack: docker compose run --rm --build architecture [app ...]
   architecture:
     build: scripts/architecture
@@ -7,3 +51,6 @@ services:
       - .:/repo
     working_dir: /repo
     entrypoint: ["python", "scripts/architecture/render.py"]
+
+volumes:
+  banking-db:

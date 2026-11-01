@@ -26,7 +26,15 @@ autoquest/
 ## Local setup
 
 Prerequisites: [Docker](https://docs.docker.com/get-docker/) and [uv](https://docs.astral.sh/uv/).
-Each app's README explains how to set it up and run it.
+
+```sh
+uv sync                          # dev environment for every app
+uv run pre-commit install        # format, lint and type checks on commit
+docker compose up --build        # full local stack, bound to 127.0.0.1
+uv run pytest                    # tests (integration tests need the stack's databases)
+```
+
+Each app's README explains its configuration and interfaces.
 
 Development guidelines are in [CLAUDE.md](CLAUDE.md).
 
