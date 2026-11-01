@@ -4,6 +4,7 @@ Keep track of my bank accounts and expenses: one labelled view of all my account
 where my money goes, my savings rate and my net worth over time.
 
 Product discovery notes: [docs/discovery.md](docs/discovery.md).
+Technical architecture: [docs/architecture.md](docs/architecture.md).
 
 ## Roadmap
 **Objective:** every month, see where my money goes, my savings rate and my net worth across
