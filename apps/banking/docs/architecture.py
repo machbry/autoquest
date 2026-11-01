@@ -3,33 +3,66 @@
 Render with `docker compose run --rm --build architecture banking`.
 """
 
-from autoquest_diagrams import app_diagram, later, reads, reads_writes, uses
-from diagrams import Cluster
+from autoquest_diagrams import (
+    app_diagram,
+    component,
+    provider,
+    reads,
+    reads_writes,
+    uses,
+)
+from diagrams.gcp.compute import Run
 from diagrams.gcp.storage import GCS
 from diagrams.onprem.analytics import Dbt
+from diagrams.onprem.ci import GithubActions
 from diagrams.onprem.client import User
 from diagrams.onprem.database import Postgresql
 from diagrams.onprem.iac import Terraform
-from diagrams.programming.framework import Fastapi
-from diagrams.programming.language import Python
 
 with app_diagram("Banking"):
-    user = User("Me, desktop browser")
+    user = component(User, "Me", "Every user journey", "Desktop browser")
 
-    with Cluster("Google Cloud"):
-        web = Fastapi("Web app\nCloud Run")
-        mcp = Python(later("MCP server\nCloud Run"))
-        gcs = GCS("Cloud Storage")
+    with provider("Google Cloud"):
+        web = component(
+            Run, "aq-prd-banking-web", "Web app and imports", "Cloud Run Service"
+        )
+        mcp = component(
+            Run,
+            "aq-prd-banking-mcp",
+            "Agent-assisted labelling",
+            "Cloud Run Service",
+            planned=True,
+        )
+        gcs = component(
+            GCS,
+            "aq-prd-banking-data-<project-id>",
+            "Backups and models",
+            "Cloud Storage bucket",
+        )
 
-    with Cluster("GitHub"):
-        Terraform("Deploy\nGitHub Actions")
-        backup = Python("Backup\nGitHub Actions")
-        dbt = Dbt("Analytics\nGitHub Actions")
-        ml = Python(later("Auto-labelling\nGitHub Actions"))
+    with provider("GitHub"):
+        component(
+            Terraform, "aq-prd-banking-deploy", "Deploy", "Terraform on GitHub Actions"
+        )
+        backup = component(
+            GithubActions, "aq-prd-banking-backup", "Backups", "GitHub Actions"
+        )
+        dbt = component(
+            Dbt, "aq-prd-banking-analytics", "Analysis", "dbt on GitHub Actions"
+        )
+        ml = component(
+            GithubActions,
+            "aq-prd-banking-autolabel",
+            "Auto-labelling",
+            "GitHub Actions",
+            planned=True,
+        )
 
-    with Cluster("Neon"):
-        banking = Postgresql("banking schema")
-        analytics = Postgresql("analytics schema")
+    with provider("Neon"):
+        banking = component(Postgresql, "banking", "App data", "PostgreSQL schema")
+        analytics = component(
+            Postgresql, "analytics", "Analysis models", "PostgreSQL schema"
+        )
 
     user >> uses() >> web
     web >> reads_writes() >> banking
