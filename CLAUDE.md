@@ -166,6 +166,7 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
   schema and deterministic fake data automatically.
 - Common commands (from the repo root):
   - `uv sync`: install dependencies
+  - `uv run pre-commit install`: run format, lint and type checks on every commit
   - `uv run ruff format . && uv run ruff check .`: format and lint
   - `uv run pytest`: run tests
   - `docker compose up --build`: run the local stack
