@@ -16,7 +16,7 @@ flowchart LR
     subgraph run[Cloud Run]
         web[Web app<br/>FastAPI + HTMX<br/>+ importers]
         noco[NocoDB]
-        mcp[MCP server<br/>later, optional]
+        mcp[MCP server]
     end
     subgraph pg[Postgres: Neon]
         banking[(banking schema)]
@@ -25,8 +25,8 @@ flowchart LR
     subgraph gha[GitHub Actions jobs]
         deploy[Deploy]
         backup[Backup]
-        dbt[Analytics: dbt build]
-        ml[Auto-labelling<br/>later]
+        dbt[Analytics]
+        ml[Auto-labelling]
     end
     gcs[(Cloud Storage)]
 
@@ -48,15 +48,16 @@ flowchart LR
         k1[ ] -- uses --> k2[ ]
         k3[ ] -- reads and writes --> k4[ ]
         k5[ ] -- reads only --> k6[ ]
-        k7[ ] -. later .-> k8[ ]
+        k7[Later]
     end
 
     classDef key fill:none,stroke:none
-    class k1,k2,k3,k4,k5,k6,k7,k8 key
+    class k1,k2,k3,k4,k5,k6 key
+    classDef later stroke-dasharray:5 5
+    class mcp,ml,k7 later
     linkStyle 0,1,12 stroke:#6b7280,stroke-width:2px
     linkStyle 2,4,5,7,9,10,11,13 stroke:#2563eb,stroke-width:2px
     linkStyle 3,6,8,14 stroke:#16a34a,stroke-width:2px
-    linkStyle 15 stroke:#6b7280,stroke-width:2px
 ```
 
 ## Components
