@@ -46,6 +46,7 @@ autoquest/
 │   ├── src/<app>/            # Python package
 │   ├── tests/{unit,integration,e2e}/
 │   ├── infra/                # app Terraform (uses shared modules)
+│   ├── docs/architecture.*   # technical architecture: .md doc, .py diagram, .png render
 │   ├── Dockerfile
 │   ├── pyproject.toml
 │   └── README.md             # purpose, setup, config, interfaces
@@ -55,6 +56,7 @@ autoquest/
 │   ├── modules/              # reusable Terraform modules
 │   └── shared/               # resources shared by apps (budgets, IAM)
 ├── scripts/                  # dev tooling (seeding, helpers)
+│   └── architecture/         # architecture diagram renderer and shared helpers
 ├── .github/workflows/        # CI/CD
 ├── docker-compose.yml        # full local stack
 ├── pyproject.toml            # uv workspace root and tool config
@@ -167,10 +169,17 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
   - `uv run ruff format . && uv run ruff check .`: format and lint
   - `uv run pytest`: run tests
   - `docker compose up --build`: run the local stack
+  - `docker compose run --rm --build architecture [app ...]`: render architecture diagrams
 
 ## Documentation
 - `README.md` lists the apps and explains how to set them up and run them (at least locally).
 - Each app's README covers its purpose, setup, configuration and interfaces.
+- **Architecture diagrams are code.** Each app describes its technical architecture in
+  `docs/architecture.py`, built with the [diagrams](https://diagrams.mingrammer.com) library
+  and the shared helpers in `scripts/architecture/`. The rendered `docs/architecture.png` is
+  committed and embedded in `docs/architecture.md`; re-render it in the same PR as any
+  component change. No hand-drawn (Mermaid, ASCII) architecture diagrams. The
+  `architecture-diagram` skill holds the conventions.
 - `CLAUDE.md` holds development guidelines only.
 
 ## Definition of done
@@ -181,3 +190,4 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
 - [ ] Runs at €0 (free tier)
 - [ ] Everything as code, no undocumented manual step
 - [ ] Docs updated (README, app README) and kept concise
+- [ ] Architecture diagram re-rendered if components changed
