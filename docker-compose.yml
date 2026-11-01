@@ -53,7 +53,7 @@ services:
       dockerfile: apps/banking/Dockerfile
       target: dev
     image: autoquest-banking-dev
-    command: ["python", "-m", "banking.seed"]
+    command: ["python", "-m", "banking.tools.seed"]
     environment: *banking-env
     depends_on:
       banking-migrate:

@@ -1,4 +1,7 @@
-"""The layers only depend downwards: api → services → databases, all → domains."""
+"""The layers only depend downwards: api → services → databases, all → domains.
+
+Dev-only `tools` may import any layer; no layer imports them.
+"""
 
 import ast
 from pathlib import Path
@@ -40,6 +43,18 @@ def test_layer_does_not_import_upper_layers(folder, forbidden):
     }
 
     assert not violations
+
+
+def test_production_code_does_not_import_tools():
+    # Dev-only: tools need Faker, which the prd image doesn't install.
+    importers = {
+        str(path.relative_to(PACKAGE))
+        for path in PACKAGE.rglob("*.py")
+        if path.parent.name != "tools"
+        and any(m.startswith("banking.tools") for m in imported_modules(path))
+    }
+
+    assert not importers
 
 
 def test_only_routers_import_schemas():

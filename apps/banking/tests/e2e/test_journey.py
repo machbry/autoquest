@@ -9,7 +9,7 @@ from uuid import uuid4
 import httpx
 
 from banking.domains.operation import OperationFields
-from banking.fakes import build_export
+from banking.tools.fakes import build_export
 
 BASE_URL = os.environ.get("BANKING_E2E_URL", "http://127.0.0.1:8000")
 

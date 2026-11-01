@@ -84,10 +84,11 @@ src/<app>/
 │   └── templates/            # Jinja2 pages (HTML apps), one folder per resource
 ├── services/                 # business logic: rules, orchestration, transactions
 │   └── <resources>/<resource>_service.py
-└── databases/
-    ├── models/               # SQLAlchemy models
-    ├── repositories/         # data access, one per model
-    └── migrations/           # Alembic
+├── databases/
+│   ├── models/               # SQLAlchemy models
+│   ├── repositories/         # data access, one per model
+│   └── migrations/           # Alembic
+└── tools/                    # dev only (seed, fake data): may import any layer, none imports it
 ```
 - Routers never import `databases/`. Only routers import `api/schemas/`. Database models
   never leave `databases/`: repositories take and return domain objects.
