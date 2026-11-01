@@ -1,0 +1,52 @@
+# Git workflow from CLAUDE.md: branch name, PR title and every commit follow the conventions.
+name: Governance
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  conventions:
+    name: Branch, title and commits
+    runs-on: ubuntu-latest
+    env:
+      TYPES: feat|fix|refactor|perf|test|docs|build|ci|chore
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Values come in through env, never ${{ }} in the script: they are user input.
+      - name: Branch name
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          kebab='[a-z0-9]+(-[a-z0-9]+)*'
+          if [[ ! "$BRANCH" =~ ^($TYPES)/$kebab/$kebab$ ]]; then
+            echo "::error::Branch '$BRANCH' must be <type>/<scope>/<short-description>, e.g. feat/banking/12-import-ofx"
+            exit 1
+          fi
+      - name: PR title and commit subjects
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          status=0
+          check() {
+            local summary="${1#*: }"
+            if [[ ! "$1" =~ ^($TYPES)\([a-z0-9-]+\)!?:\ [^\ ] ]]; then
+              echo "::error::'$1' is not <type>(<scope>): <summary>"; status=1
+            elif (( ${#summary} > 72 )); then
+              echo "::error::'$1': summary longer than 72 characters"; status=1
+            elif [[ "$summary" == *. ]]; then
+              echo "::error::'$1': summary ends with a period"; status=1
+            fi
+          }
+          check "$TITLE"
+          while IFS= read -r subject; do check "$subject"; done \
+            < <(git log --no-merges --format=%s "$BASE..$HEAD")
+          exit $status
