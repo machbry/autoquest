@@ -1,0 +1,9 @@
+services:
+  # Dev tool, not part of the stack: docker compose run --rm --build architecture [app ...]
+  architecture:
+    build: scripts/architecture
+    profiles: [tools]
+    volumes:
+      - .:/repo
+    working_dir: /repo
+    entrypoint: ["python", "scripts/architecture/render.py"]
