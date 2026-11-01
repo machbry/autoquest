@@ -1,7 +1,8 @@
-"""Banks: add, rename and delete them; a bank in use can't be deleted."""
+"""Banks: create, update (rename) and delete them; a bank in use can't be deleted."""
 
 import logging
 from collections.abc import Sequence
+from dataclasses import asdict, dataclass
 
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,13 @@ from banking.databases.repositories.base import ConstraintViolation
 from banking.services.errors import ConflictError, InvalidError, NotFoundError
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class BankFields:
+    """What creating or updating a bank sets."""
+
+    name: str
 
 
 class BankService:
@@ -39,27 +47,28 @@ class BankService:
             raise NotFoundError
         return bank
 
-    def add(self, name: str) -> Bank:
-        """Add a bank.
+    def create(self, fields: BankFields) -> Bank:
+        """Create a bank.
 
         Raises:
             InvalidError: another bank has this name.
         """
-        bank = self._save(Bank(name=name))
-        logger.info("bank %s added", bank.id)
+        bank = self._save(Bank(**asdict(fields)))
+        logger.info("bank %s created", bank.id)
         return bank
 
-    def rename(self, bank_id: int, name: str) -> Bank:
-        """Rename a bank.
+    def update(self, bank_id: int, fields: BankFields) -> Bank:
+        """Update (rename) a bank.
 
         Raises:
             NotFoundError: no such bank.
             InvalidError: another bank has this name.
         """
         bank = self.get(bank_id)
-        bank.name = name
+        for field, value in asdict(fields).items():
+            setattr(bank, field, value)
         self._save(bank)
-        logger.info("bank %s renamed", bank.id)
+        logger.info("bank %s updated", bank.id)
         return bank
 
     def delete(self, bank_id: int) -> None:

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from banking.databases.engine import get_engine
 from banking.databases.models import AccountType
 from banking.services.accounts.account_service import AccountFields, AccountService
-from banking.services.banks.bank_service import BankService
+from banking.services.banks.bank_service import BankFields, BankService
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,7 @@ def seed(session: Session) -> int:
     added = 0
     for name in BANKS:
         if name not in banks:
-            banks[name] = bank_service.add(name).id
+            banks[name] = bank_service.create(BankFields(name=name)).id
             added += 1
 
     fake = Faker()

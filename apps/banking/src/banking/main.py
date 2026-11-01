@@ -4,7 +4,7 @@ import logging
 from collections.abc import Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.exc import DBAPIError
 
 from banking.api.routers import accounts, banks, health
@@ -25,6 +25,11 @@ def create_app() -> FastAPI:
     app = FastAPI(title="banking", docs_url=None, redoc_url=None, openapi_url=None)
     for module in (accounts, banks, health):
         app.include_router(module.router)
+
+    @app.get("/", include_in_schema=False)
+    def home() -> RedirectResponse:
+        """Send visitors to the accounts list."""
+        return RedirectResponse("/accounts")
 
     @app.middleware("http")
     async def refuse_cross_site(

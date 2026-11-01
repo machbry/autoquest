@@ -78,20 +78,61 @@ src/<app>/
 ├── api/
 │   ├── routers/              # parse the request, call a service, build the response
 │   ├── schemas/              # Pydantic schemas validating requests (and JSON responses)
-│   └── dependencies/         # DB session, service injection, auth; no business logic
+│   ├── dependencies/         # DB session, service injection, auth; no business logic
+│   └── templates/            # Jinja2 pages (HTML apps), one folder per resource
 ├── services/                 # business logic: rules, orchestration, transactions
-│   └── <feature>/<feature>_service.py
+│   └── <resources>/<resource>_service.py
 └── databases/
     ├── models/               # SQLAlchemy models
     ├── repositories/         # data access, one per model
     └── migrations/           # Alembic
 ```
-- Each feature is a vertical slice: `api/routers/foo.py` → `services/foo/foo_service.py`
-  → `databases/repositories/foo_repository.py` → `databases/models/foo.py`.
 - Services take plain arguments, never API schemas. They raise domain errors (not found,
   invalid input, conflict), which routers turn into responses.
 - Repositories turn database errors into repository errors (e.g. a broken constraint, by
   name). Services translate those into domain errors.
+
+### CRUD conventions
+One resource = one vertical slice, named after the resource (`account`, plural `accounts`):
+
+| Layer | Module | Names |
+| --- | --- | --- |
+| Router | `api/routers/accounts.py` | `router = APIRouter(prefix="/accounts")`; handlers below |
+| Schemas | `api/schemas/accounts.py` | `AccountForm` (create and edit), `<Action>Form` (`CloseForm`) |
+| Dependency | `api/dependencies/services.py` | `get_account_service`, `AccountServiceDep`; handler parameter `accounts` |
+| Service | `services/accounts/account_service.py` | `AccountService`, `AccountFields` (frozen dataclass of what create/update set) |
+| Repository | `databases/repositories/account_repository.py` | `AccountRepository(Repository[Account])` |
+| Model | `databases/models/account.py` | `Account`, table `accounts` |
+| Templates | `api/templates/accounts/` | `list.html`, `detail.html`, `form.html` (create and edit) |
+
+HTML routes (forms can only `GET` and `POST`):
+
+| Route | Handler | Service call | Success |
+| --- | --- | --- | --- |
+| `GET /accounts` | `list_accounts` | `list()` | 200 |
+| `GET /accounts/new` | `new_account` | | 200, empty form |
+| `POST /accounts` | `create_account` | `create(fields)` | 303 → detail (or list) |
+| `GET /accounts/{id}` | `show_account` | `get(id)` | 200 |
+| `GET /accounts/{id}/edit` | `edit_account` | `get(id)` | 200, prefilled form |
+| `POST /accounts/{id}` | `update_account` | `update(id, fields)` | 303 → detail (or list) |
+| `POST /accounts/{id}/delete` | `delete_account` | `delete(id)` | 303 → list |
+| `POST /accounts/{id}/<verb>` | `<verb>_account` | `<verb>(id, ...)` | 303 → detail |
+
+- Only the routes a resource needs exist. Without a detail page, writes redirect to the
+  list. A single-field create form may sit on the list page instead of `/new`.
+- `GET /` redirects to the app's main list.
+- Errors: invalid input → the form again with field errors, 422 (`InvalidError`); unknown
+  id → 404 (`NotFoundError`); conflict with the current state → 409 (`ConflictError`).
+  Ids are bounded path parameters.
+- JSON APIs (none yet) use the same paths with REST verbs: `GET`/`POST /accounts`,
+  `GET`/`PATCH`/`DELETE /accounts/{id}`, `POST /accounts/{id}/<verb>`.
+- Service methods: `list()` (and `list_<qualifier>()`), `get(id)` (raises
+  `NotFoundError`), `create(fields)`, `update(id, fields)`, `delete(id)`, `<verb>(id,
+  ...)`. Each write is one transaction, committed by the service, and logged as
+  `<resource> <id> <past-tense verb>` (ids only).
+- Repository methods mirror the session: `get(id)`, `list()`, `add(item)` (insert or
+  update), `delete(item)`. Extra queries are `list_<qualifier>()` or
+  `get_by_<field>()`. Repositories flush, never commit.
 
 ## Naming conventions
 - **Apps and libs:** short lowercase names (`banking`). Folders and cloud resources use

@@ -34,6 +34,6 @@
   </label>
   {{ error("opened_on") }}
   <button type="submit">Save</button>
-  <a href="{{ '/accounts/%d' % account.id if account else '/' }}">Cancel</a>
+  <a href="{{ '/accounts/%d' % account.id if account else '/accounts' }}">Cancel</a>
 </form>
 {% endblock %}
