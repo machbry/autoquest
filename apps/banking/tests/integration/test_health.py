@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import inspect
 
-from banking.db import SCHEMA
+from banking.databases.engine import SCHEMA
 from banking.main import create_app
 
 

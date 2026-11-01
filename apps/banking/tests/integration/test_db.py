@@ -3,7 +3,7 @@ import logging
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 
-from banking.db import get_engine
+from banking.databases.engine import get_engine
 from banking.main import create_app
 
 

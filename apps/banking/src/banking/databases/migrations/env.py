@@ -4,8 +4,8 @@ from alembic import context
 from sqlalchemy import create_engine, text
 
 from banking.config import get_settings
-from banking.db import SCHEMA
-from banking.models import Base
+from banking.databases.engine import SCHEMA
+from banking.databases.models import Base
 
 
 def run_migrations() -> None:

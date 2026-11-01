@@ -1,18 +1,19 @@
 """Deterministic fake data for the local stack: `python -m banking.seed`.
 
 Dev only: Faker comes from the dev dependency group, which the prd image doesn't
-install. Re-running it adds nothing.
+install. It writes through the services, like the app. Re-running it adds nothing.
 """
 
 import logging
 from datetime import date
 
 from faker import Faker
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from banking.db import get_engine
-from banking.models import Account, AccountType, Bank
+from banking.databases.engine import get_engine
+from banking.databases.models import AccountType
+from banking.services.accounts.account_service import AccountFields, AccountService
+from banking.services.banks.bank_service import BankService
 
 logger = logging.getLogger(__name__)
 
@@ -33,43 +34,38 @@ ACCOUNTS = [
 ]
 
 
-def fake_accounts(fake: Faker, banks: dict[str, Bank]) -> list[Account]:
-    """One account per kind, one of them closed; Goodvest has no account number."""
-    accounts = []
-    for name, bank, type_, closed in ACCOUNTS:
-        opened_on = fake.date_between(*OPENED_BETWEEN)
-        closed_on = fake.date_between(opened_on, CLOSED_BEFORE) if closed else None
-        # Drawn even when unused, so each account's values don't depend on the others.
-        number = fake.bothify("##########?", letters="ABCDEFGHJK")
-        accounts.append(
-            Account(
-                name=name,
-                bank=banks[bank],
-                type=type_,
-                account_number=None if bank == NO_ACCOUNT_NUMBER else number,
-                opened_on=opened_on,
-                closed_on=closed_on,
-            )
-        )
-    return accounts
-
-
 def seed(session: Session) -> int:
     """Add the fake banks and accounts missing (by name); return how many were added."""
-    banks = {bank.name: bank for bank in session.scalars(select(Bank))}
-    new_banks = [Bank(name=name) for name in BANKS if name not in banks]
-    banks |= {bank.name: bank for bank in new_banks}
+    bank_service, account_service = BankService(session), AccountService(session)
+    banks = {bank.name: bank.id for bank in bank_service.list()}
+    existing = {account.name for account in account_service.list()}
+    added = 0
+    for name in BANKS:
+        if name not in banks:
+            banks[name] = bank_service.add(name).id
+            added += 1
+
     fake = Faker()
     fake.seed_instance(SEED)
-    existing = set(session.scalars(select(Account.name)))
-    new_accounts = [
-        account
-        for account in fake_accounts(fake, banks)
-        if account.name not in existing
-    ]
-    session.add_all([*new_banks, *new_accounts])
-    session.commit()
-    return len(new_banks) + len(new_accounts)
+    for name, bank, type_, closed in ACCOUNTS:
+        # Drawn for every account, even skipped ones, so values stay the same.
+        opened_on = fake.date_between(*OPENED_BETWEEN)
+        closed_on = fake.date_between(opened_on, CLOSED_BEFORE) if closed else None
+        number = fake.bothify("##########?", letters="ABCDEFGHJK")
+        if name in existing:
+            continue
+        fields = AccountFields(
+            name=name,
+            bank_id=banks[bank],
+            type=type_,
+            account_number=None if bank == NO_ACCOUNT_NUMBER else number,
+            opened_on=opened_on,
+        )
+        account = account_service.create(fields)
+        if closed_on:
+            account_service.close(account.id, closed_on)
+        added += 1
+    return added
 
 
 def main() -> None:

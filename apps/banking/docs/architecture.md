@@ -7,7 +7,8 @@
 ## Overview
 A Postgres database is the single store for all banking data. A single FastAPI + HTMX web
 app covers every user flow, from data editing to import, labelling and analysis. dbt turns the stored data into analysis models. Scheduled and
-on-demand work runs as GitHub Actions jobs.
+on-demand work runs as GitHub Actions jobs. The web app's code follows the three layers
+(api → services → databases) of the [root CLAUDE.md](../../../CLAUDE.md#app-code-structure).
 
 ![Banking technical architecture](architecture.png)
 
@@ -17,7 +18,7 @@ mark planned components. Source: [architecture.py](architecture.py).
 ## Components
 | Component | Runs on | Features it supports |
 | --- | --- | --- |
-| **Web app** (FastAPI + HTMX) | Cloud Run | Accounts (declare, close); statement import with summary and freshness indicator; categories (add, rename, merge); labelling queue; manual operations and balances; corrections; monthly analysis pages |
+| **Web app** (FastAPI + HTMX) | Cloud Run | Banks (add, rename, delete); accounts (declare, edit, close, delete); statement import with summary and freshness indicator; categories (add, rename, merge); labelling queue; manual operations and balances; corrections; monthly analysis pages |
 | **Importers** (one module per bank/format, inside the web app) | Cloud Run | Banque Postale CSV; PDF statements; CFCAL and Fortuneo files; bank/account auto-detection |
 | **Postgres** | Neon (`prd`), Docker (`loc`) | Stores all app data, for every feature |
 | **dbt** (dbt-postgres) | Jobs, models in Postgres | Monthly analysis: spending by category, savings rate, net worth; internal transfer reporting |
@@ -34,8 +35,9 @@ mark planned components. Source: [architecture.py](architecture.py).
 - **Contract**: dbt declares the `banking` tables as sources and holds tests on them.
 
 ## Data model
-Defined in [models.py](../src/banking/models.py); constraints are named `uq_`/`ck_`/`fk_` +
-table + column/rule, so the app can map a violation to the field at fault.
+Defined in [databases/models](../src/banking/databases/models/). Constraints are named
+`uq_`/`ck_`/`fk_` + table + column/rule, so the services can map a violation to the field
+at fault.
 
 - **`banks`**: `name` (unique). Managed by the user; a bank used by an account can't be
   deleted (`accounts.bank_id` foreign key, `ON DELETE RESTRICT`).

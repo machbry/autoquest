@@ -68,6 +68,31 @@ Rules:
   tables, files, messages), and every interface has contract tests.
 - Code moves to `libs/` only once a second app needs it.
 
+### App code structure
+Apps with an HTTP interface (API, UI, MCP server) are split into three layers.
+Dependencies only point down: routers → services → repositories → models.
+```
+src/<app>/
+├── main.py                   # app factory: routers, middleware, error handlers
+├── config.py                 # settings from environment variables
+├── api/
+│   ├── routers/              # parse the request, call a service, build the response
+│   ├── schemas/              # Pydantic schemas validating requests (and JSON responses)
+│   └── dependencies/         # DB session, service injection, auth; no business logic
+├── services/                 # business logic: rules, orchestration, transactions
+│   └── <feature>/<feature>_service.py
+└── databases/
+    ├── models/               # SQLAlchemy models
+    ├── repositories/         # data access, one per model
+    └── migrations/           # Alembic
+```
+- Each feature is a vertical slice: `api/routers/foo.py` → `services/foo/foo_service.py`
+  → `databases/repositories/foo_repository.py` → `databases/models/foo.py`.
+- Services take plain arguments, never API schemas. They raise domain errors (not found,
+  invalid input, conflict), which routers turn into responses.
+- Repositories turn database errors into repository errors (e.g. a broken constraint, by
+  name). Services translate those into domain errors.
+
 ## Naming conventions
 - **Apps and libs:** short lowercase names (`banking`). Folders and cloud resources use
   kebab-case; Python packages use snake_case.

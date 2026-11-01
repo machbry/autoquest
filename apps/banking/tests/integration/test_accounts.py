@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
-from banking.models import Account
+from banking.databases.models import Account
 
 MAX_ID = 2**31 - 1  # largest INTEGER
 
