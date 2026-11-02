@@ -47,8 +47,8 @@ all accounts since end 2024, for under 30 minutes of upkeep a month.
 
 | | Feature | Why | Issue |
 |---|---|---|---|
-| Now | Accounts + Banque Postale current-account CSV import (dedup, freshness indicator) | High-volume account; 90-day CSV window loses data if missed | [#12](https://github.com/machbry/autoquest/issues/12) |
-| Now | Labelling flow: categories, "same as last time" suggestions, review queue | Labels are the core of every answer and the future training set | [#13](https://github.com/machbry/autoquest/issues/13) |
+| Now | Operations table: filter, sort, categorize in bulk (replaces the labelling queue; account page shows a monthly recap) | Monthly labelling in ≤ 15 min, and one place to review and fix labels across accounts | |
+| Next | Clean, consistent look | ~30 min a month in the app; pages easier to scan | [#35](https://github.com/machbry/autoquest/issues/35) |
 | Next | Deploy: private, in the cloud, durable data | Required before the other Next items; data survives a laptop loss | [#14](https://github.com/machbry/autoquest/issues/14) |
 | Next | Monthly analysis: spending by category, savings rate, net worth | Turns labels into the objective's answers | |
 | Next | Internal transfer detection | Without it, transfers inflate spending and distort savings rate | |
@@ -61,4 +61,4 @@ all accounts since end 2024, for under 30 minutes of upkeep a month.
 
 Dependencies: analysis needs labels; savings rate needs transfer detection; net worth needs
 balances. PDF backfill depends on riskiest assumption 3 (statements add up): test it before
-speccing.
+speccing. #35 comes after the operations table, so the final pages are restyled once.
