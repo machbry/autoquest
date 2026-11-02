@@ -56,8 +56,14 @@ at fault.
   copies beyond those stored, with the account row locked (`FOR UPDATE`), in one
   transaction.
 - Both reference `accounts` with `ON DELETE CASCADE`.
-
-TODO: labels (#13).
+- **`categories`**: `name` (unique): the type of an expense or income; context goes in tags.
+  Renaming keeps the labels (they hold the id). A category in use can't be deleted
+  (`labels.category_id`, `ON DELETE RESTRICT`); merging moves its labels to another, then
+  deletes it, in one transaction.
+- **`labels`**: at most one per operation (`operation_id` primary key, `ON DELETE
+  CASCADE`): `category_id`, free-text `tags` (an array: tags are never renamed or merged),
+  optional `note`, `source` (`suggestion` accepted or `manual`, `CHECK`), and `created_at`
+  for the labelling-time metric.
 
 ## Security
 TODO: defined with #14.

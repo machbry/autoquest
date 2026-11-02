@@ -8,8 +8,8 @@ Technical architecture: [docs/architecture.md](docs/architecture.md).
 
 ## Run locally
 From the repo root, `docker compose up --build` starts Postgres, applies the migrations,
-loads deterministic fake data (`banking-seed`: banks, accounts and two overlapping fake
-exports; safe to re-run) and serves the app on
+loads deterministic fake data (`banking-seed`: banks, accounts, two overlapping fake
+exports and categories; safe to re-run) and serves the app on
 <http://127.0.0.1:8000>.
 
 Tests need the stack, without the fake data: `docker compose up -d --build --wait
@@ -31,6 +31,7 @@ If a not-yet-merged migration was edited, reset the local database (fake data on
 | `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there |
 | `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary, imported files and operations |
 | `GET /banks` | Banks list; create, rename, or delete a bank no account uses |
+| `GET /categories` | Categories list with label counts; create, rename, merge into another, or delete a category no label uses |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
 | `banking` schema | Owned by Alembic (`src/banking/databases/migrations`); dbt reads it as a source |
 

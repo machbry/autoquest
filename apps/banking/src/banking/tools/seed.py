@@ -13,8 +13,10 @@ from sqlalchemy.orm import Session
 from banking.databases.engine import get_engine
 from banking.domains.account import Account, AccountFields, AccountType
 from banking.domains.bank import BankFields
+from banking.domains.category import CategoryFields
 from banking.services.accounts.account_service import AccountService
 from banking.services.banks.bank_service import BankService
+from banking.services.categories.category_service import CategoryService
 from banking.services.imports.import_service import ImportService
 from banking.tools.fakes import build_export, fake_operations
 
@@ -35,6 +37,16 @@ ACCOUNTS = [
     ("PEA", "Fortuneo", AccountType.PEA, False),
     ("Life insurance", NO_ACCOUNT_NUMBER, AccountType.LIFE_INSURANCE, False),
 ]
+CATEGORIES = [
+    "Groceries",
+    "Restaurants",
+    "Transport",
+    "Housing",
+    "Health",
+    "Leisure",
+    "Salary",
+    "Internal transfer",
+]
 # Two 90-day exports overlapping by 43 days, as regular exports would.
 IMPORTED_ACCOUNT = "Current account"
 EXPORT_DATES = (date(2026, 6, 15), date(2026, 8, 1))
@@ -42,7 +54,7 @@ EXPORT_WINDOW_DAYS = 90
 
 
 def seed(session: Session) -> int:
-    """Add the fake banks, accounts and imports missing; return how many were added."""
+    """Add the fake banks, accounts, imports and categories missing; count them."""
     bank_service, account_service = BankService(session), AccountService(session)
     banks = {bank.name: bank.id for bank in bank_service.list()}
     existing = {account.name for account in account_service.list()}
@@ -74,7 +86,17 @@ def seed(session: Session) -> int:
         added += 1
 
     current = next(a for a in account_service.list() if a.name == IMPORTED_ACCOUNT)
-    return added + _seed_imports(session, current)
+    return added + _seed_imports(session, current) + _seed_categories(session)
+
+
+def _seed_categories(session: Session) -> int:
+    """Add the fake categories missing."""
+    category_service = CategoryService(session)
+    existing = {category.name for category in category_service.list()}
+    missing = [name for name in CATEGORIES if name not in existing]
+    for name in missing:
+        category_service.create(CategoryFields(name=name))
+    return len(missing)
 
 
 def _seed_imports(session: Session, account: Account) -> int:
@@ -105,7 +127,7 @@ def main() -> None:
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
     )
     with Session(get_engine()) as session:
-        logger.info("%d banks, accounts and imports added", seed(session))
+        logger.info("%d banks, accounts, imports and categories added", seed(session))
 
 
 if __name__ == "__main__":
