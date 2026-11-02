@@ -168,14 +168,33 @@ class OperationView(View):
         await _set_category(request, selection, None)
 
 
-class CategoryView(View):
+class NamedView(View):
+    """Records with a name: trimmed, required, and as long as its column allows."""
+
+    fields = [StringField("name")]
+    fields_default_sort = ["name"]
+
+    async def validate(self, request: Request, data: dict[str, Any]) -> None:
+        """Trim the name, refusing it blank or too long (with the field's error).
+
+        Raises:
+            FormValidationError: the name is blank or too long.
+        """
+        name = str(data.get("name") or "").strip()
+        limit = self.model.__table__.c.name.type.length
+        if not name:
+            raise FormValidationError({"name": "Enter a name."})
+        if len(name) > limit:
+            raise FormValidationError({"name": f"{limit} characters at most."})
+        data["name"] = name
+
+
+class CategoryView(NamedView):
     """Categories: add, rename, merge; one in use can't be deleted, only merged."""
 
     key = "categories"
     menu_label = "Categories"
     display_name = "Category"
-    fields = [StringField("name")]
-    fields_default_sort = ["name"]
     actions = ["merge", "delete"]
 
     @action(
@@ -214,17 +233,15 @@ class CategoryView(View):
         flash(request, f"{merged} categories merged.", "success")
 
 
-class BankView(View):
+class BankView(NamedView):
     """Banks: add, rename; one an account uses can't be deleted."""
 
     key = "banks"
     menu_label = "Banks"
     display_name = "Bank"
-    fields = [StringField("name")]
-    fields_default_sort = ["name"]
 
 
-class AccountView(View):
+class AccountView(NamedView):
     """Accounts, for the operations' account column and filter only.
 
     The app's own pages manage accounts: this view isn't in the menu, and opens nothing.
@@ -232,7 +249,6 @@ class AccountView(View):
 
     key = "accounts"
     display_name = "Account"
-    fields = [StringField("name")]
 
     def is_accessible(self, request: Request) -> bool:
         """Hidden: the app's account pages are the place for accounts."""
