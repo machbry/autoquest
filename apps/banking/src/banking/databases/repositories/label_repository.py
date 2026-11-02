@@ -1,6 +1,8 @@
 """Data access to labels."""
 
-from sqlalchemy import update
+from typing import Any, cast
+
+from sqlalchemy import CursorResult, update
 from sqlalchemy.orm import Session
 
 from banking.databases.models import LabelModel
@@ -19,9 +21,13 @@ class LabelRepository:
 
     def reassign_category(self, from_id: int, to_id: int) -> int:
         """Move every label of a category to another; return how many moved."""
-        result = self.session.execute(
-            update(LabelModel)
-            .where(LabelModel.category_id == from_id)
-            .values(category_id=to_id)
+        # An UPDATE returns a CursorResult, though `execute` is typed as `Result`.
+        result = cast(
+            CursorResult[Any],
+            self.session.execute(
+                update(LabelModel)
+                .where(LabelModel.category_id == from_id)
+                .values(category_id=to_id)
+            ),
         )
         return result.rowcount
