@@ -61,32 +61,36 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
         assert "File dated 2 days ago" in page
         assert page.count("CB E2E SHOP") == 2
 
-        # Label the first operation by hand: its identical copy gets the suggestion.
+        # Label one copy by hand in the operations table, then accept last time's
+        # category for the other.
         assert client.post("/categories", data={"name": category}).status_code == 303
         category_id = re.search(
             rf'<td>{category}</td>.*?href="/categories/(\d+)/edit"',
             client.get("/categories").text,
             re.DOTALL,
         )[1]
-        queue_url = f"/labels/new?account_id={account_url.rsplit('/', 1)[1]}"
-        page = client.get(queue_url).text
-        assert "3 to label" in page
-        assert "Suggested from" not in page
-        label = {
-            "operation_id": operation_id(page),
-            "account_id": account_url.rsplit("/", 1)[1],
-            "category_id": category_id,
-        }
-        assert client.post("/labels", data=label).status_code == 303
-        page = client.get(queue_url).text
-        assert "2 to label" in page
-        assert f"Suggested from the operation of {today - timedelta(days=3)}." in page
+        account_id = account_url.rsplit("/", 1)[1]
+        filters = {"account": account_id, "labelled": "no"}
+        page = client.get("/operations", params=filters).text
+        first, second = operation_ids(page, "CB E2E SHOP")
+        assert len(operation_ids(page)) == 3
+        assert 'name="only"' not in page
         response = client.post(
-            "/labels", data=label | {"operation_id": operation_id(page)}
+            "/labels", data=filters | {"id": first, "category_id": category_id}
         )
         assert response.status_code == 303
-        assert "1 to label" in client.get(queue_url).text
-        assert client.get(account_url).text.count(f"<td>{category}</td>") == 2
+        page = client.get(response.headers["location"]).text
+        assert "1 operation labelled." in page
+        assert operation_ids(page, "CB E2E SHOP") == [second]
+        response = client.post("/labels/accept", data=filters | {"only": second})
+        assert response.status_code == 303
+        page = client.get(response.headers["location"]).text
+        assert "1 suggestion accepted." in page
+        assert len(operation_ids(page)) == 1
+        labelled = client.get(
+            "/operations", params={"account": account_id, "category": category_id}
+        ).text
+        assert len(operation_ids(labelled)) == 2
 
         # Cleaning up is part of the journey: the account (and its labels), then the
         # now unused category and bank.
@@ -97,6 +101,9 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
         assert bank not in client.get("/banks").text
 
 
-def operation_id(page: str) -> str:
-    """The id of the operation the queue page shows."""
-    return re.search(r'name="operation_id" value="(\d+)"', page)[1]
+def operation_ids(page: str, description: str = "") -> list[str]:
+    """The ids of the table's rows whose description starts with this text."""
+    return re.findall(
+        rf'name="id" value="(\d+)"[^>]*aria-label="Select \S+ {re.escape(description)}',
+        page,
+    )

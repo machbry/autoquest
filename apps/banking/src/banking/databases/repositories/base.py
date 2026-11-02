@@ -1,8 +1,10 @@
 """Generic repository and the error it raises when a constraint is broken."""
 
-from collections.abc import Mapping
-from typing import Any
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from typing import Any, cast
 
+from sqlalchemy import CursorResult, Executable
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -76,13 +78,33 @@ class Repository[M: Base, D]:
         return True
 
     def _flush(self) -> None:
-        """Send pending writes; a broken constraint rolls back and is raised by name.
+        """Send pending writes.
+
+        Raises:
+            ConstraintViolation: a write breaks a named constraint.
+        """
+        with self._constraints():
+            self.session.flush()
+
+    def _execute(self, statement: Executable) -> CursorResult[Any]:
+        """Run a bulk write (INSERT, UPDATE, DELETE).
+
+        Raises:
+            ConstraintViolation: the write breaks a named constraint.
+        """
+        with self._constraints():
+            # A write returns a CursorResult, though `execute` is typed as `Result`.
+            return cast(CursorResult[Any], self.session.execute(statement))
+
+    @contextmanager
+    def _constraints(self) -> Iterator[None]:
+        """Raise a broken constraint by name, after rolling back.
 
         The transaction is rolled back because Postgres refuses any further statement
         in it.
         """
         try:
-            self.session.flush()
+            yield
         except IntegrityError as exc:
             self.session.rollback()
             diag = getattr(exc.orig, "diag", None)

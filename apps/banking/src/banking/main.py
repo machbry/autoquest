@@ -9,7 +9,15 @@ from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import DBAPIError
 
-from banking.api.routers import accounts, banks, categories, health, imports, labels
+from banking.api.routers import (
+    accounts,
+    banks,
+    categories,
+    health,
+    imports,
+    labels,
+    operations,
+)
 from banking.config import get_settings
 from banking.databases.repositories.base import ConstraintViolation
 from banking.domains.errors import ConflictError, NotFoundError
@@ -27,7 +35,7 @@ def create_app() -> FastAPI:
     """Build the app; fails fast if the configuration is invalid."""
     get_settings()
     app = FastAPI(title="banking", docs_url=None, redoc_url=None, openapi_url=None)
-    for module in (accounts, banks, categories, health, imports, labels):
+    for module in (accounts, banks, categories, health, imports, labels, operations):
         app.include_router(module.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 

@@ -1,14 +1,55 @@
 """Data access to operations."""
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date
 from typing import Any
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import ColumnElement, func, select
 
-from banking.databases.models import LabelModel, OperationModel
+from banking.databases.models import (
+    AccountModel,
+    CategoryModel,
+    LabelModel,
+    OperationModel,
+)
 from banking.databases.repositories.base import Repository
-from banking.domains.operation import Operation, OperationFields
+from banking.domains.category import Category
+from banking.domains.label import Label
+from banking.domains.operation import (
+    Operation,
+    OperationFields,
+    OperationFilter,
+    OperationRow,
+    OperationSort,
+    SortColumn,
+)
+
+SORT_COLUMNS = {
+    SortColumn.DATE: OperationModel.operation_date,
+    SortColumn.ACCOUNT: AccountModel.name,
+    SortColumn.DESCRIPTION: OperationModel.description,
+    SortColumn.AMOUNT: OperationModel.amount,
+    SortColumn.CATEGORY: CategoryModel.name,
+}
+
+
+def _criteria(operation_filter: OperationFilter) -> list[ColumnElement[bool]]:
+    """What the filter keeps, as conditions to combine."""
+    criteria: list[ColumnElement[bool]] = []
+    if operation_filter.bank_ids:
+        criteria.append(AccountModel.bank_id.in_(operation_filter.bank_ids))
+    if operation_filter.account_ids:
+        criteria.append(OperationModel.account_id.in_(operation_filter.account_ids))
+    if operation_filter.category_ids:
+        criteria.append(LabelModel.category_id.in_(operation_filter.category_ids))
+    if operation_filter.labelled is not None:
+        labelled = LabelModel.operation_id.is_not(None)
+        criteria.append(labelled if operation_filter.labelled else ~labelled)
+    if operation_filter.first is not None:
+        criteria.append(OperationModel.operation_date >= operation_filter.first)
+    if operation_filter.last is not None:
+        criteria.append(OperationModel.operation_date <= operation_filter.last)
+    return criteria
 
 
 class OperationRepository(Repository[OperationModel, Operation]):
@@ -35,24 +76,47 @@ class OperationRepository(Repository[OperationModel, Operation]):
         )
         return [self.to_domain(row) for row in rows]
 
-    def list_unlabelled(
-        self,
-        account_id: int | None = None,
-        first: date | None = None,
-        last: date | None = None,
-    ) -> Sequence[Operation]:
-        """The operations without a label, oldest first; None bounds nothing."""
-        query = select(OperationModel).where(
-            ~exists().where(LabelModel.operation_id == OperationModel.id)
+    def list_filtered(
+        self, operation_filter: OperationFilter, sort: OperationSort
+    ) -> Sequence[OperationRow]:
+        """The operations the filter keeps, with their account and label, sorted.
+
+        Ties, and rows without a category when sorting on it (always last), are newest
+        first.
+        """
+        column = SORT_COLUMNS[sort.column]
+        order = column.desc() if sort.descending else column.asc()
+        query = (
+            select(OperationModel, AccountModel.name, LabelModel, CategoryModel)
+            .join(AccountModel, AccountModel.id == OperationModel.account_id)
+            .outerjoin(LabelModel, LabelModel.operation_id == OperationModel.id)
+            .outerjoin(CategoryModel, CategoryModel.id == LabelModel.category_id)
+            .order_by(
+                order.nulls_last(),
+                OperationModel.operation_date.desc(),
+                OperationModel.id.desc(),
+            )
         )
-        if account_id is not None:
-            query = query.where(OperationModel.account_id == account_id)
-        if first is not None:
-            query = query.where(OperationModel.operation_date >= first)
-        if last is not None:
-            query = query.where(OperationModel.operation_date <= last)
+        rows = self.session.execute(query.where(*_criteria(operation_filter)))
+        return [
+            OperationRow(
+                operation=self.to_domain(operation),
+                account_name=account_name,
+                label=None
+                if label is None
+                else Label(
+                    operation_id=label.operation_id,
+                    category=Category(id=category.id, name=category.name),
+                    source=label.source,
+                ),
+            )
+            for operation, account_name, label, category in rows
+        ]
+
+    def list_by_ids(self, operation_ids: Collection[int]) -> Sequence[Operation]:
+        """The operations with these ids; unknown ids are left out."""
         rows = self.session.scalars(
-            query.order_by(OperationModel.operation_date, OperationModel.id)
+            select(OperationModel).where(OperationModel.id.in_(operation_ids))
         )
         return [self.to_domain(row) for row in rows]
 

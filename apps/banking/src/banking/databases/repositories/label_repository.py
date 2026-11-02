@@ -1,14 +1,15 @@
 """Data access to labels."""
 
-from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, cast
+from collections.abc import Collection, Mapping, Sequence
+from typing import Any
 
-from sqlalchemy import CursorResult, select, update
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert
 
 from banking.databases.models import CategoryModel, LabelModel, OperationModel
 from banking.databases.repositories.base import Repository
 from banking.domains.category import Category
-from banking.domains.label import Label, PastLabel
+from banking.domains.label import Label, LabelSource, PastLabel
 
 
 class LabelRepository(Repository[LabelModel, Label]):
@@ -48,24 +49,65 @@ class LabelRepository(Repository[LabelModel, Label]):
         )
         return [PastLabel(*row) for row in rows]
 
-    def create_many(self, values: Iterable[Mapping[str, Any]]) -> None:
-        """Insert labels.
+    def create_missing(self, values: Collection[Mapping[str, Any]]) -> int:
+        """Insert labels, skipping operations that have one; return how many added.
 
         Raises:
             ConstraintViolation: the values break a named constraint.
         """
-        self.session.add_all(self.model(**row) for row in values)
-        self._flush()
+        if not values:
+            return 0
+        # Counted from RETURNING: an ORM bulk insert doesn't report its row count.
+        statement = (
+            insert(LabelModel)
+            .values(list(values))
+            .on_conflict_do_nothing()
+            .returning(LabelModel.operation_id)
+        )
+        return len(self._execute(statement).all())
+
+    def upsert_many(
+        self, operation_ids: Collection[int], category_id: int, source: LabelSource
+    ) -> None:
+        """Give operations a category.
+
+        A label already in this category is left as is: its source and creation time
+        are kept.
+
+        Raises:
+            ConstraintViolation: the values break a named constraint.
+        """
+        if not operation_ids:
+            return
+        statement = insert(LabelModel).values(
+            [
+                {"operation_id": id_, "category_id": category_id, "source": source}
+                for id_ in operation_ids
+            ]
+        )
+        self._execute(
+            statement.on_conflict_do_update(
+                index_elements=[LabelModel.operation_id],
+                # ON CONFLICT doesn't run the ORM's `onupdate`: set it here.
+                set_={
+                    "category_id": statement.excluded.category_id,
+                    "source": statement.excluded.source,
+                    "updated_at": func.now(),
+                },
+                where=LabelModel.category_id != statement.excluded.category_id,
+            )
+        )
+
+    def delete_many(self, operation_ids: Collection[int]) -> int:
+        """Delete the labels of these operations; return how many there were."""
+        statement = delete(LabelModel).where(LabelModel.operation_id.in_(operation_ids))
+        return self._execute(statement).rowcount
 
     def reassign_category(self, from_id: int, to_id: int) -> int:
         """Move every label of a category to another; return how many moved."""
-        # An UPDATE returns a CursorResult, though `execute` is typed as `Result`.
-        result = cast(
-            CursorResult[Any],
-            self.session.execute(
-                update(LabelModel)
-                .where(LabelModel.category_id == from_id)
-                .values(category_id=to_id)
-            ),
+        statement = (
+            update(LabelModel)
+            .where(LabelModel.category_id == from_id)
+            .values(category_id=to_id)
         )
-        return result.rowcount
+        return self._execute(statement).rowcount

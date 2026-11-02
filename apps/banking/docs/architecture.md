@@ -19,7 +19,7 @@ mark planned components. Source: [architecture.py](architecture.py).
 ## Components
 | Component | Runs on | Features it supports |
 | --- | --- | --- |
-| **Web app** (FastAPI + HTMX) | Cloud Run | Banks (add, rename, delete); accounts (declare, edit, close, delete); statement import with summary and freshness indicator; categories (add, rename, merge); labelling queue; manual operations and balances; corrections; monthly analysis pages |
+| **Web app** (FastAPI + HTMX) | Cloud Run | Banks (add, rename, delete); accounts (declare, edit, close, delete); statement import with summary and freshness indicator; categories (add, rename, merge); operations table (filters, sort, bulk labelling); manual operations and balances; corrections; monthly analysis pages |
 | **Importers** (one module per bank/format, inside the web app) | Cloud Run | Banque Postale CSV; PDF statements; CFCAL and Fortuneo files; bank/account auto-detection |
 | **Postgres** | Neon (`prd`), Docker (`loc`) | Stores all app data, for every feature |
 | **dbt** (dbt-postgres) | Jobs, models in Postgres | Monthly analysis: spending by category, savings rate, net worth; internal transfer reporting |

@@ -1,78 +1,68 @@
-"""Label pages: the labelling queue, and editing a label, in place with htmx.
+"""Labels: the operations table's bulk actions, and editing one label in place.
 
 Every htmx interaction is also a plain link or form: without JavaScript, the same
 routes answer with full pages and redirects.
 """
 
-from collections.abc import Mapping
 from typing import Any
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from banking.api.dependencies.forms import FormDep
 from banking.api.dependencies.htmx import HtmxDep
+from banking.api.dependencies.pages import OperationsPage, OperationsPageDep
 from banking.api.dependencies.services import (
-    AccountServiceDep,
     CategoryServiceDep,
     LabelServiceDep,
     OperationServiceDep,
 )
 from banking.api.rendering import Errors, render, validate
 from banking.api.schemas.common import Id
-from banking.api.schemas.labels import LabelForm, QueueFilterForm, QueueLabelForm
+from banking.api.schemas.labels import (
+    CategorizeForm,
+    LabelForm,
+    SelectionForm,
+)
+from banking.api.schemas.operations import TableForm
 from banking.domains.errors import InvalidError
-from banking.domains.label import Label, LabelFields, QueueFilter
+from banking.domains.label import Label, LabelFields
 from banking.domains.operation import Operation
-from banking.services.accounts.account_service import AccountService
 from banking.services.categories.category_service import CategoryService
-from banking.services.labels.label_service import LabelService
 
 router = APIRouter(prefix="/labels")
 
-FILTER_FIELDS = ("account_id", "month")
+
+def _back_to_table(
+    form: SelectionForm, notice: str, count: int, skipped: int | None = None
+) -> RedirectResponse:
+    """Back to the same view of the table, saying what the action did."""
+    extra: list[tuple[str, str | int]] = [("notice", notice), ("count", count)]
+    if skipped is not None:
+        extra.append(("skipped", skipped))
+    url = form.url(*extra)
+    if form.only is not None:
+        url += f"#operation-{form.only}"
+    return RedirectResponse(url, status_code=303)
 
 
-def _filter_values(data: Mapping[str, Any]) -> dict[str, str]:
-    return {field: str(data.get(field) or "") for field in FILTER_FIELDS}
-
-
-def _queue_url(filter_values: Mapping[str, str]) -> str:
-    query = urlencode({field: value for field, value in filter_values.items() if value})
-    return f"/labels/new?{query}" if query else "/labels/new"
+def _render_table(
+    request: Request, page: OperationsPage, data: dict[str, Any], errors: Errors
+) -> HTMLResponse:
+    """The table again, as posted (filters, ticks, fields), with the errors."""
+    query, query_errors = validate(TableForm, data)
+    return page.render(
+        request,
+        query or TableForm(),
+        422,
+        values=data,
+        errors=query_errors | errors,
+    )
 
 
 def _row_url(operation: Operation) -> str:
     """The operation's row on its account page."""
     return f"/accounts/{operation.account_id}#operation-{operation.id}"
-
-
-def _render_queue(
-    request: Request,
-    labels: LabelService,
-    categories: CategoryService,
-    accounts: AccountService,
-    queue_filter: QueueFilter,
-    filter_values: Mapping[str, str],
-    status_code: int = 200,
-    **context: Any,
-) -> HTMLResponse:
-    queue = labels.queue(queue_filter)
-    account_list = accounts.list()
-    if "values" not in context and queue.suggestion is not None:
-        context["values"] = {"category_id": queue.suggestion.category_id}
-    return render(
-        request,
-        "labels/form.html",
-        status_code,
-        queue=queue,
-        filter_values=filter_values,
-        accounts=account_list,
-        account_names={account.id: account.name for account in account_list},
-        categories=categories.list(),
-        **context,
-    )
 
 
 def _render_form(
@@ -107,61 +97,43 @@ def _render_row(
     return response
 
 
-@router.get("/new", response_class=HTMLResponse)
-def new_label(
-    request: Request,
-    labels: LabelServiceDep,
-    categories: CategoryServiceDep,
-    accounts: AccountServiceDep,
-) -> HTMLResponse:
-    """The queue: the oldest unlabelled operation, last time's label suggested."""
-    filter_values = _filter_values(request.query_params)
-    form, errors = validate(QueueFilterForm, filter_values)
-    if form is None:
-        return _render_queue(
-            request, labels, categories, accounts, QueueFilter(), {}, 422, errors=errors
-        )
-    return _render_queue(
-        request, labels, categories, accounts, form.to_filter(), filter_values
-    )
-
-
 @router.post("")
 def create_label(
-    request: Request,
-    labels: LabelServiceDep,
-    categories: CategoryServiceDep,
-    accounts: AccountServiceDep,
-    data: FormDep,
+    request: Request, labels: LabelServiceDep, page: OperationsPageDep, data: FormDep
 ) -> Response:
-    """Label the queue's operation, or all the similar ones; back to the same queue."""
-    filter_values = _filter_values(data)
-    filter_form, filter_errors = validate(QueueFilterForm, filter_values)
-    queue_filter = QueueFilter() if filter_form is None else filter_form.to_filter()
-    form, errors = validate(QueueLabelForm, data)
-    if form is not None and filter_form is not None:
-        fields = LabelFields(form.category_id)
+    """Set a category on the selected operations: an existing one, or a new one."""
+    form, errors = validate(CategorizeForm, data)
+    if form is not None:
         try:
-            if form.scope == "similar":
-                labels.create_for_similar(form.operation_id, fields, queue_filter)
-            else:
-                labels.create(form.operation_id, fields)
+            count = labels.set_category(form.ids(), form.category_id, form.new_category)
         except InvalidError as exc:
             errors = {exc.field: exc.message}
         else:
-            return RedirectResponse(_queue_url(filter_values), status_code=303)
-    all_errors: Errors = errors | filter_errors
-    return _render_queue(
-        request,
-        labels,
-        categories,
-        accounts,
-        queue_filter,
-        filter_values if filter_form is not None else {},
-        422,
-        values=data,
-        errors=all_errors,
-    )
+            return _back_to_table(form, "set", count)
+    return _render_table(request, page, data, errors)
+
+
+@router.post("/accept")
+def accept_labels(
+    request: Request, labels: LabelServiceDep, page: OperationsPageDep, data: FormDep
+) -> Response:
+    """Accept last time's category for the selected operations (or one row's)."""
+    form, errors = validate(SelectionForm, data)
+    if form is None:
+        return _render_table(request, page, data, errors)
+    result = labels.accept_suggestions(form.ids())
+    return _back_to_table(form, "accepted", result.accepted, result.skipped)
+
+
+@router.post("/delete")
+def delete_labels(
+    request: Request, labels: LabelServiceDep, page: OperationsPageDep, data: FormDep
+) -> Response:
+    """Remove the category of the selected operations: back to unlabelled."""
+    form, errors = validate(SelectionForm, data)
+    if form is None:
+        return _render_table(request, page, data, errors)
+    return _back_to_table(form, "removed", labels.delete_many(form.ids()))
 
 
 @router.get("/{operation_id}/edit", response_class=HTMLResponse)

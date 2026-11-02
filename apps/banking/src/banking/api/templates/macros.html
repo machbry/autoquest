@@ -1,20 +1,19 @@
 {# A field's validation error, from the `errors` dict of the page. #}
 {% macro error(field) %}{% if errors[field] %}<span class="error">{{ errors[field] }}</span>{% endif %}{% endmacro %}
 
-{# An operation, as the label pages show it above their form. #}
-{% macro operation_details(operation, account_name=None) %}
+{# An operation, as the label page shows it above its form. #}
+{% macro operation_details(operation) %}
 <dl>
   <dt>Date</dt><dd>{{ operation.operation_date }}</dd>
-  {% if account_name %}<dt>Account</dt><dd>{{ account_name }}</dd>{% endif %}
   <dt>Description</dt><dd>{{ operation.description }}</dd>
   <dt>Amount</dt><dd>{{ operation.amount }}</dd>
 </dl>
 {% endmacro %}
 
-{# A label's field: its category. #}
-{% macro label_fields(categories, autofocus_category=False) %}
+{# A label's field: its category; optional where a new one can be named instead. #}
+{% macro label_fields(categories, autofocus_category=False, required=True) %}
 <label>Category
-  <select name="category_id" required{% if autofocus_category %} autofocus{% endif %}>
+  <select name="category_id"{% if required %} required{% endif %}{% if autofocus_category %} autofocus{% endif %}>
     <option value="">Choose a category</option>
     {% for category in categories %}<option value="{{ category.id }}"{% if values.category_id|string == category.id|string %} selected{% endif %}>{{ category.name }}</option>{% endfor %}
   </select>

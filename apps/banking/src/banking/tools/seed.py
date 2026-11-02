@@ -117,10 +117,10 @@ def _seed_categories(session: Session) -> int:
 
 
 def _seed_labels(session: Session, account: Account) -> int:
-    """Label the first export's operations, leaving the later ones in the queue.
+    """Label the first export's operations, leaving the later ones unlabelled.
 
-    Oldest first, as in the queue: the first operation of each payee is labelled by
-    hand, the next ones accept the suggestion.
+    Oldest first: the first operation of each payee is labelled by hand, the next
+    ones accept the suggestion.
     """
     label_service = LabelService(session)
     categories = {

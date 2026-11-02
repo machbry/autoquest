@@ -1,18 +1,22 @@
 """Pages that several routers render, with the services they show."""
 
+from collections.abc import Collection
 from datetime import date
-from typing import Annotated, Any
+from typing import Annotated, Any, Protocol
 
 from fastapi import Depends, Request
 from fastapi.responses import HTMLResponse
 
 from banking.api.dependencies.services import (
     AccountServiceDep,
+    BankServiceDep,
+    CategoryServiceDep,
     ImportServiceDep,
     LabelServiceDep,
     OperationServiceDep,
 )
 from banking.api.rendering import render
+from banking.domains.operation import MAX_SELECTION, OperationFilter, OperationSort
 
 
 class AccountPage:
@@ -62,4 +66,77 @@ class AccountPage:
         )
 
 
+class TableQuery(Protocol):
+    """What the operations table needs from its query (the routers' schema)."""
+
+    @property
+    def id(self) -> list[int]: ...  # noqa: D102
+
+    @property
+    def select(self) -> str | None: ...  # noqa: D102
+
+    @property
+    def similar_to(self) -> int | None: ...  # noqa: D102
+
+    def to_filter(self) -> OperationFilter: ...  # noqa: D102
+
+    def to_sort(self) -> OperationSort: ...  # noqa: D102
+
+
+class OperationsPage:
+    """The operations table: filters, rows, ticked rows and the bulk actions.
+
+    The table route and the label actions (on errors) both render it.
+    """
+
+    def __init__(
+        self,
+        operations: OperationServiceDep,
+        banks: BankServiceDep,
+        accounts: AccountServiceDep,
+        categories: CategoryServiceDep,
+    ) -> None:
+        """Use the request's services."""
+        self.operations, self.banks = operations, banks
+        self.accounts, self.categories = accounts, categories
+
+    def render(
+        self,
+        request: Request,
+        query: TableQuery,
+        status_code: int = 200,
+        **context: Any,
+    ) -> HTMLResponse:
+        """Render the table for this query; `context` adds to (or overrides) it."""
+        rows = self.operations.list(query.to_filter(), query.to_sort())
+        ticked = set(query.id)
+        if query.select == "all":
+            added: Collection[int] = [row.operation.id for row in rows]
+        elif query.similar_to is not None:
+            added = self.operations.similar_ids(rows, query.similar_to)
+        else:
+            added = ()
+        if len(ticked.union(added)) > MAX_SELECTION:
+            context.setdefault("errors", {})["select"] = (
+                f"At most {MAX_SELECTION} operations at once: narrow the filters."
+            )
+        else:
+            ticked.update(added)
+        categories = self.categories.list()
+        return render(
+            request,
+            "operations/list.html",
+            status_code,
+            query=query,
+            rows=rows,
+            ticked=ticked,
+            banks=self.banks.list(),
+            accounts=self.accounts.list(),
+            categories=categories,
+            category_names={category.id: category.name for category in categories},
+            **context,
+        )
+
+
 AccountPageDep = Annotated[AccountPage, Depends()]
+OperationsPageDep = Annotated[OperationsPage, Depends()]

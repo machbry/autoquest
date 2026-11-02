@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "macros.html" import error, label_fields with context %}
+{% block title %}Operations · Banking{% endblock %}
+
+{# A sortable column's header: a link that sorts on it, then toggles the order. #}
+{% macro sort_header(column, title, numeric=False) %}
+{% set current = query.sort == column %}
+{% set next_order = "asc" if not current or query.order == "desc" else "desc" %}
+<th{% if numeric %} class="num"{% endif %}{% if current %} aria-sort="{{ 'descending' if query.order == 'desc' else 'ascending' }}"{% endif %}>
+  <a href="{{ query.url(sort=column, order=next_order) }}">{{ title }}{% if current %} {{ "▼" if query.order == "desc" else "▲" }}{% endif %}</a>
+</th>
+{% endmacro %}
+
+{# One filter's choices, as checkboxes. #}
+{% macro choices(legend, name, items, chosen) %}
+<fieldset>
+  <legend>{{ legend }}</legend>
+  {% for item in items %}<label><input type="checkbox" name="{{ name }}" value="{{ item.id }}"{% if item.id in chosen %} checked{% endif %}> {{ item.name }}</label>{% endfor %}
+  {{ error(name) }}
+</fieldset>
+{% endmacro %}
+
+{% block content %}
+<h1>Operations</h1>
+
+<form class="filters" method="get" action="/operations">
+  {{ choices("Banks", "bank", banks, query.bank) }}
+  {{ choices("Accounts", "account", accounts, query.account) }}
+  {{ choices("Categories", "category", categories, query.category) }}
+  <fieldset>
+    <legend>Labelled</legend>
+    {% for value, text in [("", "All"), ("yes", "Labelled"), ("no", "Unlabelled")] %}
+    <label><input type="radio" name="labelled" value="{{ value }}"{% if (query.labelled or "") == value %} checked{% endif %}> {{ text }}</label>
+    {% endfor %}
+    {{ error("labelled") }}
+  </fieldset>
+  <fieldset>
+    <legend>Period</legend>
+    <label>From <input type="date" name="from" value="{{ query.from_ or '' }}"></label>
+    <label>To <input type="date" name="to" value="{{ query.to or '' }}"></label>
+    {{ error("from") }}{{ error("to") }}
+  </fieldset>
+  {% for name, value in query.params() if name in ("sort", "order") %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+  <button type="submit">Filter</button>
+  <a href="/operations">Clear filters</a>
+</form>
+
+{% if query.notice == "set" %}
+<p class="notice">{{ query.count }} operation{{ "" if query.count == 1 else "s" }} labelled.</p>
+{% elif query.notice == "accepted" %}
+<p class="notice">{{ query.count }} suggestion{{ "" if query.count == 1 else "s" }} accepted.
+{%- if query.skipped %} {{ query.skipped }} had no suggestion to accept.{% endif %}</p>
+{% elif query.notice == "removed" %}
+<p class="notice">{{ query.count }} operation{{ "" if query.count == 1 else "s" }} set back to unlabelled.</p>
+{% endif %}
+{% for field in ("sort", "order", "similar_to", "notice", "count", "skipped", "only") if errors[field] %}
+<p class="error">{{ errors[field] }}</p>
+{% endfor %}
+
+{% if rows %}
+{# One form for the table: the ticked rows go with whichever button is used. #}
+<form method="post" action="/labels">
+  {% for name, value in query.params() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+  {# "Set category" comes first: Enter in the name field uses the first button. #}
+  <p>
+    {{ label_fields(categories, required=False) }}
+    <label>or new category <input type="text" name="new_category" maxlength="50" value="{{ values.new_category or '' }}"></label>
+    <button type="submit">Set category</button>
+    {{ error("new_category") }}
+  </p>
+  <p>
+    <button type="submit" formaction="/labels/accept">Accept suggestions</button>
+    <button type="submit" formaction="/labels/delete">Remove category</button>
+  </p>
+  <p>
+    <strong>{{ ticked | length }} selected</strong>
+    <button type="submit" formmethod="get" formaction="/operations" name="select" value="all">Select all shown</button>
+    <a href="{{ query.url() }}">Clear selection</a>
+    {{ error("id") }}{{ error("select") }}
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th><span class="visually-hidden">Selected</span></th>
+        {{ sort_header("date", "Date") }}
+        {{ sort_header("account", "Account") }}
+        {{ sort_header("description", "Description") }}
+        {{ sort_header("amount", "Amount", numeric=True) }}
+        {{ sort_header("category", "Category") }}
+        <th>Suggestion</th>
+        <th><span class="visually-hidden">Similar</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      {% set operation = row.operation %}
+      <tr id="operation-{{ operation.id }}">
+        <td><input type="checkbox" name="id" value="{{ operation.id }}"{% if operation.id in ticked %} checked{% endif %} aria-label="Select {{ operation.operation_date }} {{ operation.description }}"></td>
+        <td>{{ operation.operation_date }}</td>
+        <td>{{ row.account_name }}</td>
+        <td>{{ operation.description }}</td>
+        <td class="num">{{ operation.amount }}</td>
+        <td>{{ row.label.category.name if row.label }}</td>
+        <td>{% if row.suggestion %}{{ category_names[row.suggestion.category_id] }}
+          <button type="submit" formaction="/labels/accept" name="only" value="{{ operation.id }}" aria-label="Accept {{ category_names[row.suggestion.category_id] }} for {{ operation.description }}">Accept</button>{% endif %}</td>
+        <td><button type="submit" formmethod="get" formaction="/operations" name="similar_to" value="{{ operation.id }}" aria-label="Select operations similar to {{ operation.description }}">Similar</button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</form>
+{% elif query.labelled == "no" %}
+<p>Nothing to label.</p>
+{% else %}
+<p>No operation matches these filters.</p>
+{% endif %}
+{% endblock %}

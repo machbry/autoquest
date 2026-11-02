@@ -9,7 +9,7 @@ Technical architecture: [docs/architecture.md](docs/architecture.md).
 ## Run locally
 From the repo root, `docker compose up --build` starts Postgres, applies the migrations,
 loads deterministic fake data (`banking-seed`: banks, accounts, two overlapping fake
-exports, categories, and labels for the first export, so the queue shows suggestions; safe
+exports, categories, and labels for the first export, so the operations table shows suggestions; safe
 to re-run) and serves the app on
 <http://127.0.0.1:8000>.
 
@@ -33,7 +33,8 @@ only): `docker compose down -v`.
 | `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary, imported files and operations |
 | `GET /banks` | Banks list; create, rename, or delete a bank no account uses |
 | `GET /categories` | Categories list with label counts; create, rename, merge into another, or delete a category no label uses |
-| `GET /labels/new` | Labelling queue: oldest unlabelled operation first, with the remaining count, last time's label suggested, an optional filter by account and month (`account_id`, `month=YYYY-MM`), and "Save for all N similar" |
+| `GET /operations` | Operations table across accounts: filters kept in the address (`bank`, `account`, `category`, repeatable; `labelled=yes\|no`; `from`, `to`), sort on any column (`sort`, `order`; newest first by default), last time's category suggested for unlabelled rows. Select rows one by one, all shown (`select=all`) or similar to one (`similar_to`), 500 at most |
+| `POST /labels`, `/labels/accept`, `/labels/delete` | The table's bulk actions on the selected operations (`id`, repeatable): set a category (`category_id`, or `new_category` to create one), accept suggestions (or one row's, `only`), remove the category |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
 | `banking` schema | Owned by Alembic (`src/banking/databases/migrations`); dbt reads it as a source |
 
