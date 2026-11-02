@@ -1,0 +1,5 @@
+{# The account links to the app's own page: the admin has none. #}
+{% from "fields/list/_truncated.html" import truncated %}
+{% call truncated() -%}
+    <a href="/accounts/{{ data.id }}">{{ data["_meta"]["repr"] }}</a>
+{%- endcall %}

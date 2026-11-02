@@ -1,19 +1,17 @@
-"""Submitted form data, query parameters and uploaded files."""
+"""Submitted form data and uploaded files."""
 
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
 from starlette.datastructures import ImmutableMultiDict, UploadFile
 
-from banking.domains.operation import MAX_SELECTION
 from banking.services.imports.import_service import MAX_FILE_BYTES
 
 # Refused before the body is read; smaller bodies are cut, so the service can tell the
 # user their file is too large.
 MAX_UPLOAD_BYTES = 2 * MAX_FILE_BYTES
-# Fields of one form: the operations table posts one per selected operation, plus
-# its filters.
-MAX_FORM_FIELDS = MAX_SELECTION + 20
+# Fields of one form: the account form has the most.
+MAX_FORM_FIELDS = 20
 
 
 def _values(data: ImmutableMultiDict[str, Any]) -> dict[str, Any]:
@@ -43,11 +41,6 @@ async def form_data(request: Request) -> dict[str, Any]:
     return _values(await request.form(max_fields=MAX_FORM_FIELDS))
 
 
-def query_data(request: Request) -> dict[str, Any]:
-    """Read the query parameters, as `form_data` reads a form."""
-    return _values(request.query_params)
-
-
 async def uploaded_file(request: Request) -> bytes:
     """The `file` field's content, cut one byte past what an import accepts.
 
@@ -71,5 +64,4 @@ async def uploaded_file(request: Request) -> bytes:
 
 
 FormDep = Annotated[dict[str, Any], Depends(form_data)]
-QueryDep = Annotated[dict[str, Any], Depends(query_data)]
 UploadDep = Annotated[bytes, Depends(uploaded_file)]

@@ -6,17 +6,12 @@ from collections.abc import Awaitable, Callable
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session, sessionmaker
 
-from banking.api.routers import (
-    accounts,
-    banks,
-    categories,
-    health,
-    imports,
-    labels,
-    operations,
-)
+from banking.admin import create_admin
+from banking.api.routers import accounts, health, imports
 from banking.config import get_settings
+from banking.databases.engine import get_engine
 from banking.databases.repositories.base import ConstraintViolation
 from banking.domains.errors import ConflictError, NotFoundError
 
@@ -27,12 +22,17 @@ SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 ALLOWED_FETCH_SITES = {None, "same-origin", "none"}
 
 
-def create_app() -> FastAPI:
-    """Build the app; fails fast if the configuration is invalid."""
-    get_settings()
+def create_app(admin_sessions: sessionmaker[Session] | None = None) -> FastAPI:
+    """Build the app; fails fast if the configuration is invalid.
+
+    `admin_sessions` makes the admin's sessions (tests bind them to their own).
+    """
+    settings = get_settings()
     app = FastAPI(title="banking", docs_url=None, redoc_url=None, openapi_url=None)
-    for module in (accounts, banks, categories, health, imports, labels, operations):
+    for module in (accounts, health, imports):
         app.include_router(module.router)
+    sessions = admin_sessions or sessionmaker(get_engine(), expire_on_commit=False)
+    create_admin(sessions, settings.secret_key.get_secret_value()).mount_to(app)
 
     @app.get("/", include_in_schema=False)
     def home() -> RedirectResponse:

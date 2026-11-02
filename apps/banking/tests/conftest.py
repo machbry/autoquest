@@ -9,7 +9,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from banking.databases.models import BankModel
 
@@ -18,6 +18,7 @@ from banking.databases.models import BankModel
 os.environ.setdefault(
     "BANKING_DB_URL", "postgresql+psycopg://banking:banking@127.0.0.1:5432/banking"
 )
+os.environ.setdefault("BANKING_SECRET_KEY", "local-only-secret-key-not-for-production")
 
 ALEMBIC_INI = Path(__file__).parents[1] / "alembic.ini"
 
@@ -43,12 +44,18 @@ def session(engine: Engine) -> Iterator[Session]:
 
 @pytest.fixture
 def client(session: Session) -> TestClient:
-    """Client of an app whose requests all use the test session."""
+    """Client of an app whose requests all use the test's connection."""
     # Imported late: the app reads its settings, set above, at import time.
     from banking.api.dependencies.database import get_session
     from banking.main import create_app
 
-    app = create_app()
+    # The admin opens a session per request: on the test's connection too.
+    admin_sessions = sessionmaker(
+        bind=session.bind,
+        join_transaction_mode="create_savepoint",
+        expire_on_commit=False,
+    )
+    app = create_app(admin_sessions)
     app.dependency_overrides[get_session] = lambda: session
     return TestClient(app, follow_redirects=False)
 

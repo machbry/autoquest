@@ -26,6 +26,7 @@ services:
     command: ["alembic", "upgrade", "head"]
     environment: &banking-env
       BANKING_DB_URL: postgresql+psycopg://banking:banking@banking-db:5432/banking
+      BANKING_SECRET_KEY: local-only-secret-key-not-for-production
     depends_on:
       banking-db:
         condition: service_healthy

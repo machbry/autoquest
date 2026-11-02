@@ -8,7 +8,6 @@ from banking.databases.models.bank import BankModel
 from banking.databases.models.base import Base
 from banking.databases.models.category import CategoryModel
 from banking.databases.models.import_ import ImportModel
-from banking.databases.models.label import LabelModel
 from banking.databases.models.operation import OperationModel
 
 __all__ = [
@@ -17,6 +16,5 @@ __all__ = [
     "Base",
     "CategoryModel",
     "ImportModel",
-    "LabelModel",
     "OperationModel",
 ]

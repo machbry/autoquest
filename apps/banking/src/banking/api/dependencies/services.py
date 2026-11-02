@@ -7,9 +7,7 @@ from fastapi import Depends
 from banking.api.dependencies.database import SessionDep
 from banking.services.accounts.account_service import AccountService
 from banking.services.banks.bank_service import BankService
-from banking.services.categories.category_service import CategoryService
 from banking.services.imports.import_service import ImportService
-from banking.services.labels.label_service import LabelService
 from banking.services.operations.operation_service import OperationService
 
 
@@ -23,19 +21,9 @@ def get_bank_service(session: SessionDep) -> BankService:
     return BankService(session)
 
 
-def get_category_service(session: SessionDep) -> CategoryService:
-    """Category use cases for this request."""
-    return CategoryService(session)
-
-
 def get_import_service(session: SessionDep) -> ImportService:
     """Import use cases for this request."""
     return ImportService(session)
-
-
-def get_label_service(session: SessionDep) -> LabelService:
-    """Label use cases for this request."""
-    return LabelService(session)
 
 
 def get_operation_service(session: SessionDep) -> OperationService:
@@ -45,7 +33,5 @@ def get_operation_service(session: SessionDep) -> OperationService:
 
 AccountServiceDep = Annotated[AccountService, Depends(get_account_service)]
 BankServiceDep = Annotated[BankService, Depends(get_bank_service)]
-CategoryServiceDep = Annotated[CategoryService, Depends(get_category_service)]
 ImportServiceDep = Annotated[ImportService, Depends(get_import_service)]
-LabelServiceDep = Annotated[LabelService, Depends(get_label_service)]
 OperationServiceDep = Annotated[OperationService, Depends(get_operation_service)]

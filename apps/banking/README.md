@@ -9,8 +9,8 @@ Technical architecture: [docs/architecture.md](docs/architecture.md).
 ## Run locally
 From the repo root, `docker compose up --build` starts Postgres, applies the migrations,
 loads deterministic fake data (`banking-seed`: banks, accounts, two overlapping fake
-exports, categories, and labels for the first export, so the operations table has labelled and unlabelled rows; safe
-to re-run) and serves the app on
+exports, categories, and labels for the first export, so the operations table has
+labelled and unlabelled rows; safe to re-run) and serves the app on
 <http://127.0.0.1:8000>.
 
 Tests need the stack, without the fake data: `docker compose up -d --build --wait
@@ -24,21 +24,23 @@ only): `docker compose down -v`.
 | Variable | Purpose |
 | --- | --- |
 | `BANKING_DB_URL` | Postgres URL, `postgresql+psycopg://…`; local default in [.env.example](.env.example) |
+| `BANKING_SECRET_KEY` | Signs the admin's CSRF and flash cookies, 32 characters at least; the same on every instance |
 | `BANKING_E2E_URL` | Tests only: web app the e2e tests target (default `http://127.0.0.1:8000`) |
 
 ## Interfaces
 | Interface | Description |
 | --- | --- |
-| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there. The account page shows a monthly recap (operations, labelled, unlabelled), each month linking to the operations table |
+| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there. The account page shows a monthly recap (operations, labelled, unlabelled), each month linking to its operations in the admin |
 | `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary and imported files |
-| `GET /banks` | Banks list; create, rename, or delete a bank no account uses |
-| `GET /categories` | Categories list with label counts; create, rename, merge into another, or delete a category no label uses |
-| `GET /operations` | Operations table across accounts: filters kept in the address, each optional (`bank`, `account`, `category` ids, `category=none` for unlabelled; `month=YYYY-MM`), sort on any column (`sort`, `order`; newest first by default). Select rows one by one, all shown (`select=all`) or similar to one (`similar_to`), 500 at most; selected rows come first |
-| `POST /labels`, `/labels/delete` | The table's bulk actions on the selected operations (`id`, repeatable): set a category (`category_id`, or `new_category` to create one), remove the category |
+| `GET /admin/operations/list` | Operations table ([starlette-admin](https://jowilf.github.io/starlette-admin/)): search, filters (`filter` in the address, e.g. `account__in=1 AND category__is_null`), sort. Set a category in its cell, or on the selected rows (or every row the filters keep) with *Set category* and *Remove category*; the bank's fields are read-only |
+| `GET /admin/categories/list` | Categories: create, rename, *Merge into…* another, or delete one no operation uses |
+| `GET /admin/banks/list` | Banks: create, rename, or delete one no account uses |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
 | `banking` schema | Owned by Alembic (`src/banking/databases/migrations`); dbt reads it as a source |
 
-Routes and code follow the [CRUD conventions](../../CLAUDE.md#crud-conventions).
+Routes and code follow the [CRUD conventions](../../CLAUDE.md#crud-conventions), except
+the admin (`src/banking/admin`): built from the SQLAlchemy models, it writes the tables
+directly, and the database constraints hold the invariants.
 New migration, generated from `databases/models` (review it before committing):
 `uv run alembic -c apps/banking/alembic.ini revision --autogenerate -m "<Summary.>"`.
 

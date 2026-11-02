@@ -9,10 +9,3 @@ class Bank:
 
     id: int
     name: str
-
-
-@dataclass(frozen=True)
-class BankFields:
-    """What creating or updating a bank sets."""
-
-    name: str

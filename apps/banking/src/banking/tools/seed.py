@@ -1,27 +1,22 @@
 """Deterministic fake data for the local stack: `python -m banking.tools.seed`.
 
 Dev only: Faker comes from the dev dependency group, which the prd image doesn't
-install. It writes through the services, like the app. Re-running it adds nothing.
+install. It writes accounts and imports through the services, like the app, and banks,
+categories and labels to the tables, like the admin. Re-running it adds nothing.
 """
 
 import logging
-from collections import defaultdict
 from datetime import date, timedelta
 
 from faker import Faker
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from banking.databases.engine import get_engine
+from banking.databases.models import BankModel, CategoryModel, OperationModel
 from banking.domains.account import Account, AccountFields, AccountType
-from banking.domains.bank import BankFields
-from banking.domains.category import CategoryFields
-from banking.domains.operation import OperationFilter, OperationSort
 from banking.services.accounts.account_service import AccountService
-from banking.services.banks.bank_service import BankService
-from banking.services.categories.category_service import CategoryService
 from banking.services.imports.import_service import ImportService
-from banking.services.labels.label_service import LabelService
-from banking.services.operations.operation_service import OperationService
 from banking.tools.fakes import build_export, fake_operations
 
 logger = logging.getLogger(__name__)
@@ -71,14 +66,12 @@ EXPORT_WINDOW_DAYS = 90
 
 def seed(session: Session) -> int:
     """Add the fake banks, accounts, imports, categories and labels missing; count."""
-    bank_service, account_service = BankService(session), AccountService(session)
-    banks = {bank.name: bank.id for bank in bank_service.list()}
+    account_service = AccountService(session)
+    added = _add_named(session, BankModel, BANKS)
+    banks = {
+        name: id_ for name, id_ in session.execute(select(BankModel.name, BankModel.id))
+    }
     existing = {account.name for account in account_service.list()}
-    added = 0
-    for name in BANKS:
-        if name not in banks:
-            banks[name] = bank_service.create(BankFields(name=name)).id
-            added += 1
 
     fake = Faker()
     fake.seed_instance(SEED)
@@ -103,43 +96,42 @@ def seed(session: Session) -> int:
 
     current = next(a for a in account_service.list() if a.name == IMPORTED_ACCOUNT)
     added += _seed_imports(session, current)
-    added += _seed_categories(session)
+    added += _add_named(session, CategoryModel, CATEGORIES)
     return added + _seed_labels(session, current)
 
 
-def _seed_categories(session: Session) -> int:
-    """Add the fake categories missing."""
-    category_service = CategoryService(session)
-    existing = {category.name for category in category_service.list()}
-    missing = [name for name in CATEGORIES if name not in existing]
-    for name in missing:
-        category_service.create(CategoryFields(name=name))
+def _add_named(
+    session: Session, model: type[BankModel] | type[CategoryModel], names: list[str]
+) -> int:
+    """Add the banks or categories missing, by name."""
+    existing = set(session.scalars(select(model.name)))
+    missing = [name for name in names if name not in existing]
+    session.add_all(model(name=name) for name in missing)
+    session.commit()
     return len(missing)
 
 
 def _seed_labels(session: Session, account: Account) -> int:
-    """Label the first export's operations, leaving the later ones unlabelled.
+    """Label the first export's unlabelled operations, leaving the later ones be.
 
-    Each operation gets its payee's category, one bulk action per category.
+    Each operation gets its payee's category.
     """
     categories = {
-        category.name: category.id for category in CategoryService(session).list()
+        name: id_
+        for name, id_ in session.execute(select(CategoryModel.name, CategoryModel.id))
     }
-    unlabelled = OperationService(session).list(
-        OperationFilter(account_id=account.id, uncategorized=True), OperationSort()
+    unlabelled = session.scalars(
+        select(OperationModel).filter_by(account_id=account.id, category_id=None)
     )
-    by_category = defaultdict(list)
-    for row in unlabelled:
-        operation = row.operation
+    labelled = 0
+    for operation in unlabelled:
         # None for operations seeded before the payee pool existed: left unlabelled.
         payee = next((p for p in PAYEE_CATEGORIES if p in operation.description), None)
         if operation.operation_date <= EXPORT_DATES[0] and payee is not None:
-            by_category[categories[PAYEE_CATEGORIES[payee]]].append(operation.id)
-    label_service = LabelService(session)
-    return sum(
-        label_service.set_category(ids, category_id)
-        for category_id, ids in by_category.items()
-    )
+            operation.category_id = categories[PAYEE_CATEGORIES[payee]]
+            labelled += 1
+    session.commit()
+    return labelled
 
 
 def _seed_imports(session: Session, account: Account) -> int:
