@@ -5,15 +5,15 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, Request
 from starlette.datastructures import ImmutableMultiDict, UploadFile
 
-from banking.domains.operation import MAX_CHOICES, MAX_SELECTION
+from banking.domains.operation import MAX_SELECTION
 from banking.services.imports.import_service import MAX_FILE_BYTES
 
 # Refused before the body is read; smaller bodies are cut, so the service can tell the
 # user their file is too large.
 MAX_UPLOAD_BYTES = 2 * MAX_FILE_BYTES
 # Fields of one form: the operations table posts one per selected operation, plus
-# its filters (each of their choices bounded by MAX_CHOICES).
-MAX_FORM_FIELDS = MAX_SELECTION + 3 * MAX_CHOICES + 20
+# its filters.
+MAX_FORM_FIELDS = MAX_SELECTION + 20
 
 
 def _values(data: ImmutableMultiDict[str, Any]) -> dict[str, Any]:

@@ -4,11 +4,10 @@ from datetime import date
 from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
 
-from pydantic import BaseModel, BeforeValidator, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, BeforeValidator, Field
 
 from banking.api.schemas.common import BoundedId, OptionalId, blank_to_none
 from banking.domains.operation import (
-    MAX_CHOICES,
     MAX_SELECTION,
     OperationFilter,
     OperationSort,
@@ -23,6 +22,20 @@ def _as_list(value: Any) -> Any:
 
 
 Ids = Annotated[list[BoundedId], BeforeValidator(_as_list)]
+
+
+def _first_day(value: Any) -> Any:
+    """`YYYY-MM`, as `<input type="month">` sends it, is the month's first day."""
+    if not value:
+        return None
+    if isinstance(value, str):
+        year, _, month = value.partition("-")
+        if not (len(year) == 4 and len(month) == 2):
+            raise ValueError("Use the format YYYY-MM.")
+        return f"{value}-01"
+    return value
+
+
 # The category filter's choice for operations without a category.
 NONE = "none"
 DEFAULT_SORT = OperationSort()
@@ -35,36 +48,23 @@ class OperationFilterForm(BaseModel):
     reload or a bookmark keeps it.
     """
 
-    bank: Ids = Field(default=[], max_length=MAX_CHOICES)
-    account: Ids = Field(default=[], max_length=MAX_CHOICES)
+    bank: OptionalId = None
+    account: OptionalId = None
     category: Annotated[
-        list[Literal["none"] | BoundedId], BeforeValidator(_as_list)
-    ] = Field(default=[], max_length=MAX_CHOICES + 1)
-    from_: Annotated[date | None, BeforeValidator(blank_to_none)] = Field(
-        default=None, alias="from"
-    )
-    to: Annotated[date | None, BeforeValidator(blank_to_none)] = None
+        Literal["none"] | BoundedId | None, BeforeValidator(blank_to_none)
+    ] = None
+    month: Annotated[date | None, BeforeValidator(_first_day)] = None
     sort: SortColumn = DEFAULT_SORT.column
     order: Literal["asc", "desc"] = "desc"
-
-    @field_validator("to")
-    @classmethod
-    def not_before_from(cls, value: date | None, info: ValidationInfo) -> date | None:
-        """The period can't end before it starts."""
-        first = info.data.get("from_")
-        if value is not None and first is not None and value < first:
-            raise ValueError("The end date can't be before the start date.")
-        return value
 
     def to_filter(self) -> OperationFilter:
         """The filter for the service."""
         return OperationFilter(
-            bank_ids=tuple(self.bank),
-            account_ids=tuple(self.account),
-            category_ids=tuple(item for item in self.category if isinstance(item, int)),
-            uncategorized=NONE in self.category,
-            first=self.from_,
-            last=self.to,
+            bank_id=self.bank,
+            account_id=self.account,
+            category_id=self.category if isinstance(self.category, int) else None,
+            uncategorized=self.category == NONE,
+            month=self.month,
         )
 
     def to_sort(self) -> OperationSort:
@@ -77,8 +77,7 @@ class OperationFilterForm(BaseModel):
             "bank": self.bank,
             "account": self.account,
             "category": self.category,
-            "from": self.from_,
-            "to": self.to,
+            "month": self.month and f"{self.month:%Y-%m}",
             "sort": self.sort,
             "order": self.order,
         } | overrides

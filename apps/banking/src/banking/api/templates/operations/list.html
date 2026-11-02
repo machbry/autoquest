@@ -11,29 +11,27 @@
 </th>
 {% endmacro %}
 
-{# One filter's choices, as checkboxes; `none_label` adds a choice for "no value". #}
-{% macro choices(legend, name, items, chosen, none_label=None) %}
-<fieldset>
-  <legend>{{ legend }}</legend>
-  {% if none_label %}<label><input type="checkbox" name="{{ name }}" value="none"{% if "none" in chosen %} checked{% endif %}> {{ none_label }}</label>{% endif %}
-  {% for item in items %}<label><input type="checkbox" name="{{ name }}" value="{{ item.id }}"{% if item.id in chosen %} checked{% endif %}> {{ item.name }}</label>{% endfor %}
-  {{ error(name) }}
-</fieldset>
+{# One filter: a dropdown, blank for everything; `none_label` adds "no value". #}
+{% macro choice(label, name, items, chosen, none_label=None) %}
+<label>{{ label }}
+  <select name="{{ name }}">
+    <option value="">—</option>
+    {% if none_label %}<option value="none"{% if chosen == "none" %} selected{% endif %}>{{ none_label }}</option>{% endif %}
+    {% for item in items %}<option value="{{ item.id }}"{% if item.id == chosen %} selected{% endif %}>{{ item.name }}</option>{% endfor %}
+  </select>
+</label>
+{{ error(name) }}
 {% endmacro %}
 
 {% block content %}
 <h1>Operations</h1>
 
 <form class="filters" method="get" action="/operations">
-  {{ choices("Banks", "bank", banks, query.bank) }}
-  {{ choices("Accounts", "account", accounts, query.account) }}
-  {{ choices("Categories", "category", categories, query.category, none_label="None (unlabelled)") }}
-  <fieldset>
-    <legend>Period</legend>
-    <label>From <input type="date" name="from" value="{{ query.from_ or '' }}"></label>
-    <label>To <input type="date" name="to" value="{{ query.to or '' }}"></label>
-    {{ error("from") }}{{ error("to") }}
-  </fieldset>
+  {{ choice("Bank", "bank", banks, query.bank) }}
+  {{ choice("Account", "account", accounts, query.account) }}
+  {{ choice("Category", "category", categories, query.category, none_label="None (unlabelled)") }}
+  <label>Month <input type="month" name="month" placeholder="YYYY-MM" value="{{ '%04d-%02d' % (query.month.year, query.month.month) if query.month else '' }}"></label>
+  {{ error("month") }}
   {% for name, value in query.params() if name in ("sort", "order") %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
   <button type="submit">Filter</button>
   <a href="/operations">Clear filters</a>
@@ -94,7 +92,7 @@
     </tbody>
   </table>
 </form>
-{% elif query.category == ["none"] %}
+{% elif query.category == "none" %}
 <p>Nothing to label.</p>
 {% else %}
 <p>No operation matches these filters.</p>

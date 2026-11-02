@@ -81,20 +81,6 @@ def test_bank_and_category_filters_combine(
     assert row_ids(page) == [kept.id]
 
 
-def test_none_and_a_category_combine(
-    client, account, add_operation, add_label, groceries, leisure
-):
-    unlabelled = add_operation(date(2026, 10, 1))
-    in_groceries = add_operation(date(2026, 10, 2))
-    add_label(in_groceries, groceries)
-    add_label(add_operation(date(2026, 10, 3)), leisure)
-
-    page = table(client, account, category=["none", groceries.id]).text
-
-    assert row_ids(page) == ids(in_groceries, unlabelled)
-    assert re.search(r'value="none" checked', page)
-
-
 def test_sorting_by_amount_follows_the_order(client, account, add_operation):
     small = add_operation(date(2026, 10, 1), amount="-50.00")
     large = add_operation(date(2026, 10, 2), amount="1200.00")
@@ -262,7 +248,9 @@ def test_too_many_operations_are_refused(client, account, add_operation, groceri
         {"category": "some"},
         {"sort": "balance"},
         {"order": "up"},
-        {"from": "2026-10-31", "to": "2026-10-01"},
+        {"month": "2026-13"},
+        {"month": "10/2026"},
+        {"bank": ["1", "2"]},
         {"bank": "abc"},
         {"account": str(MAX_ID + 1)},
     ],
@@ -271,14 +259,15 @@ def test_invalid_query_is_refused(client, params):
     assert client.get("/operations", params=params).status_code == 422
 
 
-def test_period_filter_keeps_the_dates_within(client, account, add_operation):
+def test_month_filter_keeps_that_month(client, account, add_operation):
     add_operation(date(2026, 9, 30))
     kept = [add_operation(date(2026, 10, day)) for day in (1, 31)]
     add_operation(date(2026, 11, 1))
 
-    page = table(client, account, **{"from": "2026-10-01", "to": "2026-10-31"}).text
+    page = table(client, account, month="2026-10").text
 
     assert sorted(row_ids(page)) == ids(*kept)
+    assert 'name="month" placeholder="YYYY-MM" value="2026-10"' in page
 
 
 def test_empty_states(client, account, add_operation, add_label, groceries, leisure):

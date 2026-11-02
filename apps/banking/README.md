@@ -33,7 +33,7 @@ only): `docker compose down -v`.
 | `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary, imported files and operations |
 | `GET /banks` | Banks list; create, rename, or delete a bank no account uses |
 | `GET /categories` | Categories list with label counts; create, rename, merge into another, or delete a category no label uses |
-| `GET /operations` | Operations table across accounts: filters kept in the address (`bank`, `account`, `category`, repeatable, `category=none` for unlabelled; `from`, `to`), sort on any column (`sort`, `order`; newest first by default). Select rows one by one, all shown (`select=all`) or similar to one (`similar_to`), 500 at most; selected rows come first |
+| `GET /operations` | Operations table across accounts: filters kept in the address, each optional (`bank`, `account`, `category` ids, `category=none` for unlabelled; `month=YYYY-MM`), sort on any column (`sort`, `order`; newest first by default). Select rows one by one, all shown (`select=all`) or similar to one (`similar_to`), 500 at most; selected rows come first |
 | `POST /labels`, `/labels/delete` | The table's bulk actions on the selected operations (`id`, repeatable): set a category (`category_id`, or `new_category` to create one), remove the category |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
 | `banking` schema | Owned by Alembic (`src/banking/databases/migrations`); dbt reads it as a source |
