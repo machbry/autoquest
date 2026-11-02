@@ -5,7 +5,6 @@ from datetime import date
 from enum import StrEnum
 
 from banking.domains.category import Category
-from banking.domains.operation import Operation
 
 
 class LabelSource(StrEnum):
@@ -50,19 +49,8 @@ class Suggestion:
 
 
 @dataclass(frozen=True)
-class QueueFilter:
-    """Narrows the queue to an account and to a month (its first day); None is all."""
+class AcceptResult:
+    """Suggestions accepted, and operations that had none to accept."""
 
-    account_id: int | None = None
-    month: date | None = None
-
-
-@dataclass(frozen=True)
-class Queue:
-    """The oldest unlabelled operation, if any, and what helps label it."""
-
-    operation: Operation | None
-    remaining: int
-    suggestion: Suggestion | None
-    # The other unlabelled operations of the queue that match the first one.
-    similar_ids: tuple[int, ...]
+    accepted: int
+    skipped: int

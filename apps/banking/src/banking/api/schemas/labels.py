@@ -1,52 +1,64 @@
-"""Label forms and the queue filter."""
+"""Label forms: one operation's label, and the operations table's bulk actions."""
 
-from datetime import date
-from typing import Any, Literal
+from typing import Annotated
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, Field, ValidationInfo, field_validator
 
-from banking.api.schemas.common import MAX_ID
-from banking.domains.label import QueueFilter
+from banking.api.schemas.common import BoundedId, OptionalId
+from banking.api.schemas.operations import Ids, OperationFilterForm
+from banking.domains.operation import MAX_SELECTION
 
 
 class LabelForm(BaseModel):
-    """Fields of the label form (queue and edit): the category."""
+    """Fields of the in-place label form: the category."""
 
-    category_id: int = Field(ge=1, le=MAX_ID)
-
-
-class QueueLabelForm(LabelForm):
-    """The queue's label form: which operation, and whether to label the similar."""
-
-    operation_id: int = Field(ge=1, le=MAX_ID)
-    scope: Literal["one", "similar"] = "one"
+    category_id: BoundedId
 
 
-class QueueFilterForm(BaseModel):
-    """The queue filter: an account and a month (`YYYY-MM`), both optional."""
+class SelectionForm(OperationFilterForm):
+    """A bulk action's operations: the ticked ones, or `only` one row's.
 
-    account_id: int | None = Field(default=None, ge=1, le=MAX_ID)
-    month: date | None = None
+    The table's filters come along, so the action goes back to the same view.
+    """
 
-    @field_validator("account_id", mode="before")
+    only: OptionalId = None
+    id: Ids = Field(default=[], max_length=MAX_SELECTION, validate_default=True)
+
+    @field_validator("id")
     @classmethod
-    def blank_is_none(cls, value: Any) -> Any:
-        """An empty field filters nothing."""
-        return value or None
-
-    @field_validator("month", mode="before")
-    @classmethod
-    def parse_month(cls, value: Any) -> Any:
-        """`YYYY-MM`, as `<input type="month">` sends it, is the month's first day."""
-        if not value:
-            return None
-        if isinstance(value, str):
-            year, _, month = value.partition("-")
-            if not (len(year) == 4 and len(month) == 2):
-                raise ValueError("Use the format YYYY-MM.")
-            return f"{value}-01"
+    def some_selected(cls, value: list[int], info: ValidationInfo) -> list[int]:
+        """An action needs operations to act on."""
+        if not value and info.data.get("only") is None:
+            raise ValueError("Select at least one operation.")
         return value
 
-    def to_filter(self) -> QueueFilter:
-        """The filter for the service."""
-        return QueueFilter(self.account_id, self.month)
+    def ids(self) -> list[int]:
+        """The operations to act on: `only` (one row's button), else the ticked."""
+        return [self.only] if self.only is not None else self.id
+
+
+def _stripped_or_none(value: object) -> object:
+    """A name without its outer spaces; blank is none (the other field is used)."""
+    if isinstance(value, str):
+        return value.strip() or None
+    return value
+
+
+class CategorizeForm(SelectionForm):
+    """Set a category on the selection: an existing one, or a new one by name."""
+
+    category_id: OptionalId = None
+    new_category: Annotated[str | None, BeforeValidator(_stripped_or_none)] = Field(
+        default=None, max_length=50, validate_default=True
+    )
+
+    @field_validator("new_category")
+    @classmethod
+    def one_category(cls, value: str | None, info: ValidationInfo) -> str | None:
+        """Exactly one of the two: a category to pick, or a name to create."""
+        chosen = info.data.get("category_id") is not None
+        if value is None and not chosen and "category_id" in info.data:
+            raise ValueError("Choose a category, or name a new one.")
+        if value is not None and chosen:
+            raise ValueError("Either choose a category or name a new one, not both.")
+        return value

@@ -1,15 +1,37 @@
-"""Submitted form data and uploaded files."""
+"""Submitted form data, query parameters and uploaded files."""
 
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, Request
-from starlette.datastructures import UploadFile
+from starlette.datastructures import ImmutableMultiDict, UploadFile
 
+from banking.domains.operation import MAX_CHOICES, MAX_SELECTION
 from banking.services.imports.import_service import MAX_FILE_BYTES
 
 # Refused before the body is read; smaller bodies are cut, so the service can tell the
 # user their file is too large.
 MAX_UPLOAD_BYTES = 2 * MAX_FILE_BYTES
+# Fields of one form: the operations table posts one per selected operation, plus
+# its filters (each of their choices bounded by MAX_CHOICES).
+MAX_FORM_FIELDS = MAX_SELECTION + 3 * MAX_CHOICES + 20
+
+
+def _values(data: ImmutableMultiDict[str, Any]) -> dict[str, Any]:
+    """Each field's value; a repeated field (checkboxes) gives the list of its values.
+
+    Postgres text can't hold NUL: it is refused here rather than failing on insert.
+    """
+    values = {key: data.getlist(key) for key in data}
+    if any(
+        "\x00" in value
+        for items in values.values()
+        for value in items
+        if isinstance(value, str)
+    ):
+        raise HTTPException(status_code=422, detail="NUL characters are not allowed")
+    return {
+        key: items[0] if len(items) == 1 else items for key, items in values.items()
+    }
 
 
 async def form_data(request: Request) -> dict[str, Any]:
@@ -18,11 +40,12 @@ async def form_data(request: Request) -> dict[str, Any]:
     Reading a form is async; doing it in a dependency lets the handlers stay sync, so
     FastAPI runs their blocking database calls in a thread, off the event loop.
     """
-    data = dict(await request.form())
-    # Postgres text can't hold NUL: refuse it here rather than fail on insert.
-    if any("\x00" in value for value in data.values() if isinstance(value, str)):
-        raise HTTPException(status_code=422, detail="NUL characters are not allowed")
-    return data
+    return _values(await request.form(max_fields=MAX_FORM_FIELDS))
+
+
+def query_data(request: Request) -> dict[str, Any]:
+    """Read the query parameters, as `form_data` reads a form."""
+    return _values(request.query_params)
 
 
 async def uploaded_file(request: Request) -> bytes:
@@ -48,4 +71,5 @@ async def uploaded_file(request: Request) -> bytes:
 
 
 FormDep = Annotated[dict[str, Any], Depends(form_data)]
+QueryDep = Annotated[dict[str, Any], Depends(query_data)]
 UploadDep = Annotated[bytes, Depends(uploaded_file)]

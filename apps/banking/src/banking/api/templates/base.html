@@ -22,10 +22,17 @@
     .warning { color: #8a5a00; }
     .alert { color: #b00020; font-weight: bold; }
     .summary { border: 1px solid #ddd; padding: 0 1rem; }
+    .filters fieldset { display: inline-block; vertical-align: top; }
+    .filters fieldset label { display: block; }
+    .notice { font-weight: bold; }
+    /* Read by screen readers, not shown. */
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    /* Keyboard use: the focused control always shows. */
+    :focus-visible { outline: 2px solid #1a5fb4; outline-offset: 2px; }
   </style>
 </head>
 <body>
-  <header><a href="/accounts">Accounts</a><a href="/labels/new">Label</a><a href="/banks">Banks</a><a href="/categories">Categories</a></header>
+  <header><a href="/accounts">Accounts</a><a href="/operations">Operations</a><a href="/banks">Banks</a><a href="/categories">Categories</a></header>
   <main>
     {% block content %}{% endblock %}
   </main>
