@@ -3,33 +3,16 @@
 from datetime import date
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from banking.api.schemas.common import MAX_ID
-from banking.domains.label import LabelFields, QueueFilter
+from banking.domains.label import QueueFilter
 
 
 class LabelForm(BaseModel):
-    """Fields of the label form (queue and edit): a category, 3 tags and a note."""
-
-    model_config = ConfigDict(str_strip_whitespace=True)
+    """Fields of the label form (queue and edit): the category."""
 
     category_id: int = Field(ge=1, le=MAX_ID)
-    tag_1: str = Field(default="", max_length=50)
-    tag_2: str = Field(default="", max_length=50)
-    tag_3: str = Field(default="", max_length=50)
-    note: str | None = Field(default=None, max_length=500)
-
-    @field_validator("note")
-    @classmethod
-    def blank_note_is_none(cls, value: str | None) -> str | None:
-        """An empty note means no note."""
-        return value or None
-
-    def to_fields(self) -> LabelFields:
-        """The label to save: blank tags dropped, duplicates once, in typed order."""
-        tags = dict.fromkeys(tag for tag in (self.tag_1, self.tag_2, self.tag_3) if tag)
-        return LabelFields(self.category_id, tuple(tags), self.note)
 
 
 class QueueLabelForm(LabelForm):

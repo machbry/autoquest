@@ -3,7 +3,7 @@
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
-from sqlalchemy import CursorResult, func, select, update
+from sqlalchemy import CursorResult, select, update
 
 from banking.databases.models import CategoryModel, LabelModel, OperationModel
 from banking.databases.repositories.base import Repository
@@ -23,8 +23,6 @@ class LabelRepository(Repository[LabelModel, Label]):
         return Label(
             operation_id=row.operation_id,
             category=Category(id=category.id, name=category.name),
-            tags=tuple(row.tags),
-            note=row.note,
             source=row.source,
         )
 
@@ -46,20 +44,9 @@ class LabelRepository(Repository[LabelModel, Label]):
                 OperationModel.operation_date,
                 OperationModel.description,
                 LabelModel.category_id,
-                LabelModel.tags,
             ).join(LabelModel, LabelModel.operation_id == OperationModel.id)
         )
-        return [
-            PastLabel(
-                operation_id, operation_date, description, category_id, tuple(tags)
-            )
-            for operation_id, operation_date, description, category_id, tags in rows
-        ]
-
-    def list_tags(self) -> Sequence[str]:
-        """Every tag in use, sorted, once each."""
-        tag = func.unnest(LabelModel.tags).label("tag")
-        return list(self.session.scalars(select(tag).distinct().order_by("tag")))
+        return [PastLabel(*row) for row in rows]
 
     def create_many(self, values: Iterable[Mapping[str, Any]]) -> None:
         """Insert labels.

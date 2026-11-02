@@ -4,6 +4,7 @@ import logging
 from calendar import monthrange
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import asdict
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -44,12 +45,7 @@ def _save_errors() -> Iterator[None]:
 
 
 def _values(fields: LabelFields, source: LabelSource) -> dict[str, Any]:
-    return {
-        "category_id": fields.category_id,
-        "tags": list(fields.tags),
-        "note": fields.note,
-        "source": source,
-    }
+    return {**asdict(fields), "source": source}
 
 
 class LabelService:
@@ -105,10 +101,6 @@ class LabelService:
         """An account's labels, by operation id."""
         return self.labels.list_for_account(account_id)
 
-    def list_tags(self) -> Sequence[str]:
-        """Every tag in use, sorted, for autocompletion."""
-        return self.labels.list_tags()
-
     def create(self, operation_id: int, fields: LabelFields) -> Label:
         """Label an operation.
 
@@ -149,16 +141,14 @@ class LabelService:
         return len(ids)
 
     def update(self, operation_id: int, fields: LabelFields) -> Label:
-        """Change a label; it becomes manual if its category or tags change.
+        """Change a label; it becomes manual if its category changes.
 
         Raises:
             NotFoundError: no such label.
             InvalidError: the category no longer exists.
         """
         current = self.get(operation_id)
-        unchanged = fields.category_id == current.category.id and set(
-            fields.tags
-        ) == set(current.tags)
+        unchanged = fields.category_id == current.category.id
         source = current.source if unchanged else LabelSource.MANUAL
         with _save_errors():
             label = self.labels.update(operation_id, _values(fields, source))

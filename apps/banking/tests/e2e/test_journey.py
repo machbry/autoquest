@@ -76,7 +76,6 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
             "operation_id": operation_id(page),
             "account_id": account_url.rsplit("/", 1)[1],
             "category_id": category_id,
-            "tag_1": "E2E",
         }
         assert client.post("/labels", data=label).status_code == 303
         page = client.get(queue_url).text

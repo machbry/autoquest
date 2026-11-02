@@ -28,7 +28,7 @@
   <input type="hidden" name="operation_id" value="{{ operation.id }}">
   {% for field, value in filter_values.items() %}<input type="hidden" name="{{ field }}" value="{{ value }}">{% endfor %}
   {% if queue.suggestion %}<p class="muted">Suggested from the operation of {{ queue.suggestion.from_date }}.</p>{% endif %}
-  {{ label_fields(categories, tags, autofocus_category=not queue.suggestion) }}
+  {{ label_fields(categories, autofocus_category=not queue.suggestion) }}
   <button type="submit" name="scope" value="one"{% if queue.suggestion %} autofocus{% endif %}>Save</button>
   {% if queue.similar_ids %}
   <button type="submit" name="scope" value="similar">Save for all {{ queue.similar_ids | length + 1 }} similar</button>
@@ -46,7 +46,7 @@
 {{ operation_details(operation) }}
 <form class="stacked" method="post" action="/labels/{{ operation.id }}">
   {% if suggestion %}<p class="muted">Suggested from the operation of {{ suggestion.from_date }}.</p>{% endif %}
-  {{ label_fields(categories, tags, autofocus_category=True) }}
+  {{ label_fields(categories, autofocus_category=True) }}
   <button type="submit">Save</button>
   <a href="/accounts/{{ operation.account_id }}#operation-{{ operation.id }}">Cancel</a>
 </form>

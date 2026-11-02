@@ -1,4 +1,4 @@
-"""Categories: the type of an expense or income; context goes in tags."""
+"""Categories: the type of an expense or income."""
 
 from dataclasses import dataclass
 

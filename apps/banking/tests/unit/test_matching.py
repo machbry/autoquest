@@ -6,8 +6,8 @@ from banking.domains.label import LabelFields, LabelSource, PastLabel, Suggestio
 from banking.services.labels.matching import match_key, source_of, suggest
 
 
-def past(operation_id, day, description, category_id=1, tags=()):
-    return PastLabel(operation_id, day, description, category_id, tags)
+def past(operation_id, day, description, category_id=1):
+    return PastLabel(operation_id, day, description, category_id)
 
 
 @pytest.mark.parametrize(
@@ -48,15 +48,13 @@ def test_key_drops_only_words_with_digits():
 
 def test_latest_matching_label_is_suggested():
     history = [
-        past(1, date(2026, 9, 1), "CB SHOP 01.09.26", category_id=1, tags=("Old",)),
-        past(3, date(2026, 10, 1), "CB SHOP 01.10.26", category_id=2, tags=("New",)),
+        past(1, date(2026, 9, 1), "CB SHOP 01.09.26", category_id=1),
+        past(3, date(2026, 10, 1), "CB SHOP 01.10.26", category_id=2),
         past(2, date(2026, 10, 1), "CB SHOP 01.10.26", category_id=3),
         past(4, date(2026, 10, 20), "CB OTHER 20.10.26", category_id=4),
     ]
 
-    assert suggest(history, "CB SHOP 02.11.26") == Suggestion(
-        2, ("New",), date(2026, 10, 1)
-    )
+    assert suggest(history, "CB SHOP 02.11.26") == Suggestion(2, date(2026, 10, 1))
 
 
 def test_no_matching_history_suggests_nothing():
@@ -73,16 +71,15 @@ def test_description_of_noise_only_suggests_nothing():
     assert suggest(history, "789") is None
 
 
-SUGGESTION = Suggestion(1, ("Holiday", "Lisbon"), date(2026, 10, 1))
+SUGGESTION = Suggestion(1, date(2026, 10, 1))
 
 
 @pytest.mark.parametrize(
     ("fields", "suggestion", "source"),
     [
-        (LabelFields(1, ("Lisbon", "Holiday")), SUGGESTION, LabelSource.SUGGESTION),
-        (LabelFields(1, ("Holiday",)), SUGGESTION, LabelSource.MANUAL),
-        (LabelFields(2, ("Holiday", "Lisbon")), SUGGESTION, LabelSource.MANUAL),
-        (LabelFields(1, ()), None, LabelSource.MANUAL),
+        (LabelFields(1), SUGGESTION, LabelSource.SUGGESTION),
+        (LabelFields(2), SUGGESTION, LabelSource.MANUAL),
+        (LabelFields(1), None, LabelSource.MANUAL),
     ],
 )
 def test_source_is_suggestion_only_when_the_label_is_the_suggested_one(

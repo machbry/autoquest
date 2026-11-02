@@ -81,11 +81,10 @@ def add_category(session, name):
     return category
 
 
-def add_label(session, operation, category, tags=(), source=LabelSource.MANUAL):
+def add_label(session, operation, category, source=LabelSource.MANUAL):
     label = LabelModel(
         operation_id=operation.id,
         category_id=category.id,
-        tags=list(tags),
         source=source,
     )
     session.add(label)
@@ -111,10 +110,6 @@ def label_form(operation, category, **overrides):
         "category_id": str(category.id),
         "account_id": str(operation.account_id),
         "month": "",
-        "tag_1": "",
-        "tag_2": "",
-        "tag_3": "",
-        "note": "",
         "scope": "one",
     } | overrides
 
@@ -143,15 +138,13 @@ def test_matching_history_is_suggested(
     client, session, add_operation, groceries, leisure
 ):
     past = add_operation(date(2026, 10, 28))
-    add_label(session, past, leisure, ["Holiday", "Lisbon"])
+    add_label(session, past, leisure)
     add_operation(date(2026, 11, 2))
 
     page = queue(client, past).text
 
     assert "Suggested from the operation of 2026-10-28." in page
     assert f'<option value="{leisure.id}" selected>' in page
-    assert 'name="tag_1" value="Holiday"' in page
-    assert 'name="tag_2" value="Lisbon"' in page
     # One keystroke: Enter on the focused Save button.
     assert 'value="one" autofocus>Save</button>' in page
 
@@ -160,13 +153,11 @@ def test_accepting_the_suggestion_stores_it_as_such_and_shows_the_next(
     client, session, add_operation, leisure
 ):
     past = add_operation(date(2026, 10, 28))
-    add_label(session, past, leisure, ["Holiday"])
+    add_label(session, past, leisure)
     current = add_operation(date(2026, 11, 1))
     following = add_operation(date(2026, 11, 2), OTHER)
 
-    response = client.post(
-        "/labels", data=label_form(current, leisure, tag_1="Holiday")
-    )
+    response = client.post("/labels", data=label_form(current, leisure))
 
     assert response.status_code == 303
     assert response.headers["location"] == f"/labels/new?account_id={past.account_id}"
@@ -181,12 +172,10 @@ def test_label_set_by_hand_is_manual(
     client, session, add_operation, groceries, leisure, with_history
 ):
     if with_history:
-        add_label(session, add_operation(date(2026, 10, 28)), leisure, ["Holiday"])
+        add_label(session, add_operation(date(2026, 10, 28)), leisure)
     current = add_operation(date(2026, 11, 2))
 
-    response = client.post(
-        "/labels", data=label_form(current, groceries, tag_1="Holiday")
-    )
+    response = client.post("/labels", data=label_form(current, groceries))
 
     assert response.status_code == 303
     assert stored(session, current).source == LabelSource.MANUAL
@@ -223,13 +212,12 @@ def test_save_for_all_similar_labels_them_alike(
 
     response = client.post(
         "/labels",
-        data=label_form(similar[0], groceries, tag_1="Weekly", scope="similar"),
+        data=label_form(similar[0], groceries, scope="similar"),
     )
 
     assert response.status_code == 303
     labels = [stored(session, operation) for operation in similar]
     assert [label.category_id for label in labels] == [groceries.id] * 3
-    assert [label.tags for label in labels] == [["Weekly"]] * 3
     assert stored(session, different) is None
 
 
@@ -296,32 +284,10 @@ def test_invalid_month_filter_is_rejected(client, add_operation, month):
     assert response.status_code == 422
 
 
-def test_note_and_tags_are_stored_cleaned(client, session, add_operation, groceries):
-    current = add_operation(date(2026, 11, 2))
-
-    client.post(
-        "/labels",
-        data=label_form(
-            current,
-            groceries,
-            tag_1=" Holiday ",
-            tag_2="",
-            tag_3="Holiday",
-            note="  Shared with Alex  ",
-        ),
-    )
-
-    label = stored(session, current)
-    assert label.tags == ["Holiday"]
-    assert label.note == "Shared with Alex"
-
-
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [
         ({"category_id": ""}, "valid integer"),
-        ({"tag_2": "x" * 51}, "at most 50 characters"),
-        ({"note": "x" * 501}, "at most 500 characters"),
         ({"category_id": str(MAX_ID)}, "This category no longer exists."),
     ],
 )
@@ -384,13 +350,12 @@ def test_queue_without_categories_asks_to_add_one(client, session, add_operation
 
 def test_account_page_shows_labels(client, session, add_operation, groceries):
     labelled = add_operation(date(2026, 11, 2))
-    add_label(session, labelled, groceries, ["Holiday", "Lisbon"])
+    add_label(session, labelled, groceries)
     unlabelled = add_operation(date(2026, 11, 1), OTHER)
 
     page = re.sub(r"\s+", " ", client.get(f"/accounts/{labelled.account_id}").text)
 
     assert "<td>Test groceries</td>" in page
-    assert "<td>Holiday, Lisbon</td>" in page
     assert re.search(rf'href="/labels/{labelled.id}/edit"[^>]*>Edit label<', page)
     assert re.search(rf'href="/labels/{unlabelled.id}/edit"[^>]*>Add label<', page)
 
@@ -403,7 +368,7 @@ def test_unlabelled_operation_is_labelled_in_place(
     form = client.get(f"/labels/{current.id}/edit", headers=HTMX)
     response = client.post(
         f"/labels/{current.id}",
-        data={"category_id": str(groceries.id), "tag_1": "Weekly"},
+        data={"category_id": str(groceries.id)},
         headers=HTMX,
     )
 
@@ -414,19 +379,19 @@ def test_unlabelled_operation_is_labelled_in_place(
     assert "<td>Test groceries</td>" in response.text
     assert "autofocus>Edit label</a>" in response.text
     label = stored(session, current)
-    assert (label.tags, label.source) == (["Weekly"], LabelSource.MANUAL)
+    assert label.source == LabelSource.MANUAL
 
 
 def test_adding_a_label_suggests_last_time_and_accepting_it_counts(
     client, session, add_operation, leisure
 ):
-    add_label(session, add_operation(date(2026, 10, 28)), leisure, ["Holiday"])
+    add_label(session, add_operation(date(2026, 10, 28)), leisure)
     current = add_operation(date(2026, 11, 2))
 
     page = client.get(f"/labels/{current.id}/edit").text
     response = client.post(
         f"/labels/{current.id}",
-        data={"category_id": str(leisure.id), "tag_1": "Holiday"},
+        data={"category_id": str(leisure.id)},
     )
 
     assert "<h1>Add label</h1>" in page
@@ -456,7 +421,7 @@ def test_invalid_new_label_is_rejected_and_nothing_written(
 def test_user_text_is_never_rendered_as_markup(client, session, add_operation):
     category = add_category(session, "<i>Food</i>")
     labelled = add_operation(date(2026, 11, 2))
-    add_label(session, labelled, category, ["<b>Bold</b>"])
+    add_label(session, labelled, category)
     add_operation(date(2026, 11, 3))
 
     pages = [
@@ -466,20 +431,19 @@ def test_user_text_is_never_rendered_as_markup(client, session, add_operation):
     ]
 
     for page in pages:
-        assert "<b>Bold</b>" not in page
         assert "<i>Food</i>" not in page
-        assert "&lt;b&gt;Bold&lt;/b&gt;" in page
+        assert "&lt;i&gt;Food&lt;/i&gt;" in page
 
 
 def test_editing_a_label_makes_it_manual(
     client, session, add_operation, groceries, leisure
 ):
     current = add_operation(date(2026, 11, 2))
-    add_label(session, current, leisure, ["Holiday"], LabelSource.SUGGESTION)
+    add_label(session, current, leisure, LabelSource.SUGGESTION)
 
     response = client.post(
         f"/labels/{current.id}",
-        data={"category_id": str(groceries.id), "tag_1": "Holiday"},
+        data={"category_id": str(groceries.id)},
     )
 
     assert response.status_code == 303
@@ -490,46 +454,41 @@ def test_editing_a_label_makes_it_manual(
     assert (label.category_id, label.source) == (groceries.id, LabelSource.MANUAL)
 
 
-def test_editing_only_the_note_keeps_the_source(
+def test_saving_the_same_category_keeps_the_source(
     client, session, add_operation, leisure
 ):
     current = add_operation(date(2026, 11, 2))
-    add_label(session, current, leisure, ["Holiday"], LabelSource.SUGGESTION)
+    add_label(session, current, leisure, LabelSource.SUGGESTION)
 
-    client.post(
-        f"/labels/{current.id}",
-        data={"category_id": str(leisure.id), "tag_1": "Holiday", "note": "Gift"},
-    )
+    client.post(f"/labels/{current.id}", data={"category_id": str(leisure.id)})
 
-    label = stored(session, current)
-    assert (label.note, label.source) == ("Gift", LabelSource.SUGGESTION)
+    assert stored(session, current).source == LabelSource.SUGGESTION
 
 
 def test_edit_page_is_prefilled(client, session, add_operation, leisure):
     current = add_operation(date(2026, 11, 2))
-    add_label(session, current, leisure, ["Holiday"])
+    add_label(session, current, leisure)
 
     page = client.get(f"/labels/{current.id}/edit").text
 
     assert "<html" in page
     assert f'<option value="{leisure.id}" selected>' in page
-    assert 'name="tag_1" value="Holiday"' in page
 
 
 def test_invalid_edit_is_rejected_and_nothing_written(
     client, session, add_operation, leisure
 ):
     current = add_operation(date(2026, 11, 2))
-    add_label(session, current, leisure, ["Holiday"])
+    add_label(session, current, leisure)
 
     response = client.post(
         f"/labels/{current.id}",
-        data={"category_id": str(leisure.id), "note": "x" * 501},
+        data={"category_id": ""},
     )
 
     assert response.status_code == 422
     assert "<html" in response.text
-    assert stored(session, current).note is None
+    assert stored(session, current).category_id == leisure.id
 
 
 @pytest.mark.parametrize(
@@ -548,7 +507,7 @@ def test_unknown_operation_is_not_found(client, groceries, method, path):
 
 def test_htmx_edit_returns_the_row_as_a_form(client, session, add_operation, leisure):
     current = add_operation(date(2026, 11, 2))
-    add_label(session, current, leisure, ["Holiday"])
+    add_label(session, current, leisure)
 
     response = client.get(f"/labels/{current.id}/edit", headers=HTMX)
 
@@ -567,14 +526,13 @@ def test_htmx_save_returns_the_updated_row(
 
     response = client.post(
         f"/labels/{current.id}",
-        data={"category_id": str(groceries.id), "tag_1": "Weekly"},
+        data={"category_id": str(groceries.id)},
         headers=HTMX,
     )
 
     assert response.status_code == 200
     assert "<html" not in response.text
     assert "<td>Test groceries</td>" in response.text
-    assert "<td>Weekly</td>" in response.text
     # Focus goes back to the row's Edit link.
     assert "autofocus>Edit label</a>" in response.text
 
@@ -587,13 +545,13 @@ def test_htmx_invalid_save_returns_the_form_row_with_the_error(
 
     response = client.post(
         f"/labels/{current.id}",
-        data={"category_id": str(leisure.id), "tag_1": "x" * 51},
+        data={"category_id": ""},
         headers=HTMX,
     )
 
     assert response.status_code == 422
     assert "<html" not in response.text
-    assert "at most 50 characters" in response.text
+    assert "valid integer" in response.text
 
 
 def test_cancel_returns_the_row_or_goes_back_to_the_account(

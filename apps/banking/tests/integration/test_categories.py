@@ -79,7 +79,6 @@ def label(session, bank):
         label = LabelModel(
             operation_id=operation.id,
             category_id=category.id,
-            tags=["Holiday"],
             source=source,
         )
         session.add(label)

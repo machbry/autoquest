@@ -4,7 +4,7 @@ Every htmx interaction is also a plain link or form: without JavaScript, the sam
 routes answer with full pages and redirects.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlencode
 
@@ -23,7 +23,7 @@ from banking.api.rendering import Errors, render, validate
 from banking.api.schemas.common import Id
 from banking.api.schemas.labels import LabelForm, QueueFilterForm, QueueLabelForm
 from banking.domains.errors import InvalidError
-from banking.domains.label import Label, QueueFilter
+from banking.domains.label import Label, LabelFields, QueueFilter
 from banking.domains.operation import Operation
 from banking.services.accounts.account_service import AccountService
 from banking.services.categories.category_service import CategoryService
@@ -32,20 +32,6 @@ from banking.services.labels.label_service import LabelService
 router = APIRouter(prefix="/labels")
 
 FILTER_FIELDS = ("account_id", "month")
-
-
-def _form_values(
-    category_id: int, tags: Sequence[str], note: str | None
-) -> dict[str, Any]:
-    """A label as the form's fields: one input per tag."""
-    tag_1, tag_2, tag_3 = [*tags, "", "", ""][:3]
-    return {
-        "category_id": category_id,
-        "tag_1": tag_1,
-        "tag_2": tag_2,
-        "tag_3": tag_3,
-        "note": note or "",
-    }
 
 
 def _filter_values(data: Mapping[str, Any]) -> dict[str, str]:
@@ -75,8 +61,7 @@ def _render_queue(
     queue = labels.queue(queue_filter)
     account_list = accounts.list()
     if "values" not in context and queue.suggestion is not None:
-        suggestion = queue.suggestion
-        context["values"] = _form_values(suggestion.category_id, suggestion.tags, None)
+        context["values"] = {"category_id": queue.suggestion.category_id}
     return render(
         request,
         "labels/form.html",
@@ -86,14 +71,12 @@ def _render_queue(
         accounts=account_list,
         account_names={account.id: account.name for account in account_list},
         categories=categories.list(),
-        tags=labels.list_tags(),
         **context,
     )
 
 
 def _render_form(
     request: Request,
-    labels: LabelService,
     categories: CategoryService,
     operation: Operation,
     htmx: bool,
@@ -107,7 +90,6 @@ def _render_form(
         status_code,
         operation=operation,
         categories=categories.list(),
-        tags=labels.list_tags(),
         **context,
     )
     response.headers["Vary"] = "HX-Request"
@@ -158,7 +140,7 @@ def create_label(
     queue_filter = QueueFilter() if filter_form is None else filter_form.to_filter()
     form, errors = validate(QueueLabelForm, data)
     if form is not None and filter_form is not None:
-        fields = form.to_fields()
+        fields = LabelFields(form.category_id)
         try:
             if form.scope == "similar":
                 labels.create_for_similar(form.operation_id, fields, queue_filter)
@@ -195,14 +177,13 @@ def edit_label(
     operation = operations.get(operation_id)
     suggestion = None
     if (label := labels.find(operation_id)) is not None:
-        values = _form_values(label.category.id, label.tags, label.note)
+        values = {"category_id": label.category.id}
     elif (suggestion := labels.suggestion_for(operation_id)) is not None:
-        values = _form_values(suggestion.category_id, suggestion.tags, None)
+        values = {"category_id": suggestion.category_id}
     else:
         values = {}
     return _render_form(
         request,
-        labels,
         categories,
         operation,
         htmx,
@@ -230,7 +211,7 @@ def update_label(
     current = labels.find(operation_id)
     form, errors = validate(LabelForm, data)
     if form is not None:
-        fields = form.to_fields()
+        fields = LabelFields(form.category_id)
         try:
             if current is None:
                 label = labels.create(operation_id, fields)
@@ -244,7 +225,6 @@ def update_label(
             return RedirectResponse(_row_url(operation), status_code=303)
     return _render_form(
         request,
-        labels,
         categories,
         operation,
         htmx,
