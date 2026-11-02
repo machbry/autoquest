@@ -3,19 +3,27 @@ from sqlalchemy import func, select
 from banking.databases.models import (
     AccountModel,
     BankModel,
+    CategoryModel,
     ImportModel,
     OperationModel,
 )
-from banking.tools.seed import ACCOUNTS, BANKS, EXPORT_DATES, IMPORTED_ACCOUNT, seed
+from banking.tools.seed import (
+    ACCOUNTS,
+    BANKS,
+    CATEGORIES,
+    EXPORT_DATES,
+    IMPORTED_ACCOUNT,
+    seed,
+)
 
-MODELS = (BankModel, AccountModel, ImportModel, OperationModel)
+MODELS = (BankModel, AccountModel, ImportModel, OperationModel, CategoryModel)
 
 
 def count(session, model):
     return session.scalar(select(func.count()).select_from(model))
 
 
-def test_seed_creates_every_bank_account_and_import_once(session):
+def test_seed_creates_every_bank_account_import_and_category_once(session):
     seed(session)
     counts = [count(session, model) for model in MODELS]
 
@@ -31,3 +39,4 @@ def test_seed_creates_every_bank_account_and_import_once(session):
     assert {name for name, *_ in ACCOUNTS} <= set(
         session.scalars(select(AccountModel.name))
     )
+    assert set(CATEGORIES) <= set(session.scalars(select(CategoryModel.name)))
