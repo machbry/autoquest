@@ -56,18 +56,18 @@ at fault.
   copies beyond those stored, with the account row locked (`FOR UPDATE`), in one
   transaction.
 - Both reference `accounts` with `ON DELETE CASCADE`.
-- **`categories`**: `name` (unique): the type of an expense or income; context goes in tags.
+- **`categories`**: `name` (unique): the type of an expense or income.
   Renaming keeps the labels (they hold the id). A category in use can't be deleted
   (`labels.category_id`, `ON DELETE RESTRICT`); merging moves its labels to another, then
   deletes it, in one transaction.
 - **`labels`**: at most one per operation (`operation_id` primary key, `ON DELETE
-  CASCADE`): `category_id`, free-text `tags` (an array: tags are never renamed or merged),
-  optional `note`, `source` (`suggestion` accepted or `manual`, `CHECK`), and `created_at`
-  for the labelling-time metric. "Same as last time": two operations match when their
-  descriptions do once every word holding a digit is dropped (card date, card number,
-  references), ignoring case and spacing. The suggestion is the latest matching label,
-  computed on each request rather than stored, so the rule can be tuned. The server decides
-  the `source`, never the client.
+  CASCADE`): `category_id`, `source` (`suggestion` accepted or `manual`, `CHECK`), and
+  `created_at` for the labelling-time metric. No tags or notes, to stay simple.
+  "Same as last time": two operations match when their descriptions do once every word
+  holding a digit is dropped (card date, card number, references), ignoring case and
+  spacing. The suggested category is the latest matching label's, computed on each request
+  rather than stored, so the rule can be tuned. The server decides the `source`, never the
+  client.
 
 ## Front end
 Server-rendered pages and plain forms. htmx is used only to edit a label in place on the

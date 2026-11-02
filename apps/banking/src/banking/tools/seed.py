@@ -50,17 +50,17 @@ CATEGORIES = [
     "Salary",
     "Internal transfer",
 ]
-# The label of each fake payee (see `fakes.PAYEES`): category and tags.
-PAYEE_LABELS = {
-    "SUPERMARCHE DU CENTRE": ("Groceries", ()),
-    "BOULANGERIE DU PORT": ("Groceries", ("Bakery",)),
-    "RESTAURANT LE ZINC": ("Restaurants", ()),
-    "CINEMA LUMIERE": ("Leisure", ("Cinema",)),
-    "PHARMACIE CENTRALE": ("Health", ()),
-    "ENERGIE PLUS": ("Housing", ("Electricity",)),
-    "TELECOM MOBILE": ("Housing", ("Phone",)),
-    "TRANSPORTS URBAINS": ("Transport", ()),
-    "EMPLOYEUR SA": ("Salary", ()),
+# The category of each fake payee (see `fakes.PAYEES`).
+PAYEE_CATEGORIES = {
+    "SUPERMARCHE DU CENTRE": "Groceries",
+    "BOULANGERIE DU PORT": "Groceries",
+    "RESTAURANT LE ZINC": "Restaurants",
+    "CINEMA LUMIERE": "Leisure",
+    "PHARMACIE CENTRALE": "Health",
+    "ENERGIE PLUS": "Housing",
+    "TELECOM MOBILE": "Housing",
+    "TRANSPORTS URBAINS": "Transport",
+    "EMPLOYEUR SA": "Salary",
 }
 # Two 90-day exports overlapping by 43 days, as regular exports would.
 IMPORTED_ACCOUNT = "Current account"
@@ -133,11 +133,11 @@ def _seed_labels(session: Session, account: Account) -> int:
         if operation.operation_date > EXPORT_DATES[0] or operation.id in labelled:
             continue
         # None for operations seeded before the payee pool existed: left unlabelled.
-        payee = next((p for p in PAYEE_LABELS if p in operation.description), None)
+        payee = next((p for p in PAYEE_CATEGORIES if p in operation.description), None)
         if payee is None:
             continue
-        category, tags = PAYEE_LABELS[payee]
-        label_service.create(operation.id, LabelFields(categories[category], tags))
+        category_id = categories[PAYEE_CATEGORIES[payee]]
+        label_service.create(operation.id, LabelFields(category_id))
         added += 1
     return added
 

@@ -19,7 +19,7 @@ def match_key(description: str) -> str:
 
 
 def suggest(history: Iterable[PastLabel], description: str) -> Suggestion | None:
-    """The category and tags of the latest labelled operation with the same key.
+    """The category of the latest labelled operation with the same key.
 
     None without a match, or when nothing is left of the description to match on:
     never a guess.
@@ -30,15 +30,11 @@ def suggest(history: Iterable[PastLabel], description: str) -> Suggestion | None
     if not matches:
         return None
     latest = max(matches, key=lambda past: (past.operation_date, past.operation_id))
-    return Suggestion(latest.category_id, latest.tags, latest.operation_date)
+    return Suggestion(latest.category_id, latest.operation_date)
 
 
 def source_of(fields: LabelFields, suggestion: Suggestion | None) -> LabelSource:
-    """`suggestion` if the label is the one suggested (tags in any order)."""
-    if (
-        suggestion is not None
-        and fields.category_id == suggestion.category_id
-        and set(fields.tags) == set(suggestion.tags)
-    ):
+    """`suggestion` if the label is the one suggested, else `manual`."""
+    if suggestion is not None and fields.category_id == suggestion.category_id:
         return LabelSource.SUGGESTION
     return LabelSource.MANUAL

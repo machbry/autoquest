@@ -3,7 +3,6 @@
   <td>{{ operation.description }}</td>
   <td class="num">{{ operation.amount }}</td>
   <td>{{ label.category.name if label }}</td>
-  <td>{{ label.tags | join(", ") if label }}</td>
   <td><a href="/labels/{{ operation.id }}/edit" hx-get="/labels/{{ operation.id }}/edit"
          hx-target="closest tr" hx-swap="outerHTML"{% if focus %} autofocus{% endif %}>{{ "Edit label" if label else "Add label" }}</a></td>
 </tr>

@@ -12,7 +12,7 @@ where stated.
 - **Invariants live in the database** (constraints, foreign keys): several components write
   to the tables (web app, later the MCP server and the auto-labelling job).
 - **Logging, stricter than root:** log ids, counts and line numbers only. Never descriptions,
-  amounts, account numbers, tags or notes.
+  amounts or account numbers.
 - **Persistence:** SQLAlchemy models and Alembic migrations own the `banking` schema; dbt owns
   `analytics` and only reads `banking`. Never mix the two.
 

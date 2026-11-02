@@ -14,7 +14,7 @@ from banking.tools.seed import (
     CATEGORIES,
     EXPORT_DATES,
     IMPORTED_ACCOUNT,
-    PAYEE_LABELS,
+    PAYEE_CATEGORIES,
     seed,
 )
 
@@ -64,7 +64,7 @@ def test_seed_labels_the_first_export_only(session):
     ).all()
 
     # A database seeded before the payee pool existed keeps its operations unlabelled.
-    seeded = [row for row in rows if any(payee in row[1] for payee in PAYEE_LABELS)]
+    seeded = [row for row in rows if any(payee in row[1] for payee in PAYEE_CATEGORIES)]
     first_export = [row for row in seeded if row[0] <= EXPORT_DATES[0]]
     assert all(source is not None for *_, source in first_export)
     assert all(source is None for day, _, source in seeded if day > EXPORT_DATES[0])

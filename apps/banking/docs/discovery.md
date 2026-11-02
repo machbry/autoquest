@@ -95,7 +95,8 @@ Decided: first slice ("Now") = items 1, 2 and 4 for the Banque Postale current a
   [#13](https://github.com/machbry/autoquest/issues/13): desktop browser, keyboard only.
 - Fortuneo PEA: CSV export available?
 - ~~Category vs tag split~~ Confirmed in [#13](https://github.com/machbry/autoquest/issues/13):
-  categories are the type of expense, context goes in tags.
+  categories are the type of expense. Tags (and notes) were then dropped while building it,
+  to stay simple: a label is a category only.
 
 ## Next steps
 Done: roadmap in the [app README](../README.md), specs

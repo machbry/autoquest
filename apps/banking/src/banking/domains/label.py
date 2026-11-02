@@ -20,18 +20,14 @@ class LabelFields:
     """What creating or updating a label sets; the source is decided by the service."""
 
     category_id: int
-    tags: tuple[str, ...] = ()
-    note: str | None = None
 
 
 @dataclass(frozen=True)
 class Label:
-    """An operation's label: its category, free-text tags and an optional note."""
+    """An operation's label: its category."""
 
     operation_id: int
     category: Category
-    tags: tuple[str, ...]
-    note: str | None
     source: LabelSource
 
 
@@ -43,15 +39,13 @@ class PastLabel:
     operation_date: date
     description: str
     category_id: int
-    tags: tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class Suggestion:
-    """Last time's category and tags, from the operation dated `from_date`."""
+    """Last time's category, from the operation dated `from_date`."""
 
     category_id: int
-    tags: tuple[str, ...]
     from_date: date
 
 
