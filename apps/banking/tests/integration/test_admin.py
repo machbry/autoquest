@@ -196,6 +196,30 @@ def test_a_duplicate_name_is_shown_on_its_field(admin, groceries):
     assert "Another category already has this name." in response.text
 
 
+@pytest.mark.parametrize(
+    ("name", "error"),
+    [("   ", "Enter a name."), ("x" * 51, "50 characters at most.")],
+)
+def test_a_blank_or_too_long_name_is_refused_on_its_field(admin, name, error):
+    # Regression: the admin stored blank names, and failed on too long ones.
+    response = admin.post(
+        "/admin/categories/create",
+        data={"csrftoken": admin.headers["X-CSRFToken"], "name": name},
+    )
+
+    assert response.status_code == 422
+    assert error in response.text
+
+
+def test_a_name_is_stored_trimmed(admin, session):
+    admin.post(
+        "/admin/banks/create",
+        data={"csrftoken": admin.headers["X-CSRFToken"], "name": "  Trimmed bank "},
+    )
+
+    assert session.scalar(select(BankModel.id).filter_by(name="Trimmed bank"))
+
+
 def test_admin_refuses_a_cross_site_post(admin, groceries):
     response = admin.post(
         "/admin/_api/categories/action",
