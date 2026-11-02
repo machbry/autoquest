@@ -2,12 +2,14 @@
 
 import logging
 from collections.abc import Awaitable, Callable
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import DBAPIError
 
-from banking.api.routers import accounts, banks, categories, health, imports
+from banking.api.routers import accounts, banks, categories, health, imports, labels
 from banking.config import get_settings
 from banking.databases.repositories.base import ConstraintViolation
 from banking.domains.errors import ConflictError, NotFoundError
@@ -17,14 +19,17 @@ logger = logging.getLogger(__name__)
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 # No header: not a browser (tests, scripts). "none": typed or bookmarked by the user.
 ALLOWED_FETCH_SITES = {None, "same-origin", "none"}
+# Vendored front-end files (htmx), served by the app itself.
+STATIC_DIR = Path(__file__).parent / "api" / "static"
 
 
 def create_app() -> FastAPI:
     """Build the app; fails fast if the configuration is invalid."""
     get_settings()
     app = FastAPI(title="banking", docs_url=None, redoc_url=None, openapi_url=None)
-    for module in (accounts, banks, categories, health, imports):
+    for module in (accounts, banks, categories, health, imports, labels):
         app.include_router(module.router)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.get("/", include_in_schema=False)
     def home() -> RedirectResponse:

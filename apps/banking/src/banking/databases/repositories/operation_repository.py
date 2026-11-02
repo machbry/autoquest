@@ -4,9 +4,9 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import date
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, select
 
-from banking.databases.models import OperationModel
+from banking.databases.models import LabelModel, OperationModel
 from banking.databases.repositories.base import Repository
 from banking.domains.operation import Operation, OperationFields
 
@@ -20,6 +20,7 @@ class OperationRepository(Repository[OperationModel, Operation]):
         """Convert a row to its domain object."""
         return Operation(
             id=row.id,
+            account_id=row.account_id,
             operation_date=row.operation_date,
             description=row.description,
             amount=row.amount,
@@ -31,6 +32,27 @@ class OperationRepository(Repository[OperationModel, Operation]):
             select(OperationModel)
             .filter_by(account_id=account_id)
             .order_by(OperationModel.operation_date.desc(), OperationModel.id.desc())
+        )
+        return [self.to_domain(row) for row in rows]
+
+    def list_unlabelled(
+        self,
+        account_id: int | None = None,
+        first: date | None = None,
+        last: date | None = None,
+    ) -> Sequence[Operation]:
+        """The operations without a label, oldest first; None bounds nothing."""
+        query = select(OperationModel).where(
+            ~exists().where(LabelModel.operation_id == OperationModel.id)
+        )
+        if account_id is not None:
+            query = query.where(OperationModel.account_id == account_id)
+        if first is not None:
+            query = query.where(OperationModel.operation_date >= first)
+        if last is not None:
+            query = query.where(OperationModel.operation_date <= last)
+        rows = self.session.scalars(
+            query.order_by(OperationModel.operation_date, OperationModel.id)
         )
         return [self.to_domain(row) for row in rows]
 

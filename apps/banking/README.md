@@ -9,15 +9,16 @@ Technical architecture: [docs/architecture.md](docs/architecture.md).
 ## Run locally
 From the repo root, `docker compose up --build` starts Postgres, applies the migrations,
 loads deterministic fake data (`banking-seed`: banks, accounts, two overlapping fake
-exports and categories; safe to re-run) and serves the app on
+exports, categories, and labels for the first export, so the queue shows suggestions; safe
+to re-run) and serves the app on
 <http://127.0.0.1:8000>.
 
 Tests need the stack, without the fake data: `docker compose up -d --build --wait
 banking-web`, then `uv run pytest apps/banking --cov=banking`. Integration tests roll back
 their writes; the e2e test deletes what it creates.
 
-If a not-yet-merged migration was edited, reset the local database (fake data only):
-`docker compose down -v`.
+If a not-yet-merged migration or the fake data changed, reset the local database (fake data
+only): `docker compose down -v`.
 
 ## Configuration
 | Variable | Purpose |
@@ -28,10 +29,11 @@ If a not-yet-merged migration was edited, reset the local database (fake data on
 ## Interfaces
 | Interface | Description |
 | --- | --- |
-| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there |
+| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there. The account page lists the operations with their labels; "Edit label" edits one in place |
 | `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary, imported files and operations |
 | `GET /banks` | Banks list; create, rename, or delete a bank no account uses |
 | `GET /categories` | Categories list with label counts; create, rename, merge into another, or delete a category no label uses |
+| `GET /labels/new` | Labelling queue: oldest unlabelled operation first, with the remaining count, last time's label suggested, an optional filter by account and month (`account_id`, `month=YYYY-MM`), and "Save for all N similar" |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
 | `banking` schema | Owned by Alembic (`src/banking/databases/migrations`); dbt reads it as a source |
 
