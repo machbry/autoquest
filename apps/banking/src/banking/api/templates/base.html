@@ -4,10 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Banking{% endblock %}</title>
-  {# htmx's defaults, plus swapping 422 responses, so validation errors show in place. #}
-  <meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true},{"code":"...","swap":false}]}'>
-  {# Vendored and pinned: no third-party origin at runtime. #}
-  <script src="/static/htmx-2.0.11.min.js" defer></script>
   <style>
     body { font-family: system-ui, sans-serif; max-width: 60rem; margin: 0 auto; padding: 1rem; line-height: 1.5; }
     header a { color: inherit; font-weight: bold; text-decoration: none; margin-right: 1rem; }

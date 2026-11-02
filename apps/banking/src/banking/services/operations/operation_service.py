@@ -1,13 +1,12 @@
-"""Operations: read the stored operations, alone or as the operations table."""
+"""Operations: the operations table, and each account's monthly recap."""
 
 from collections.abc import Sequence
 
 from sqlalchemy.orm import Session
 
 from banking.databases.repositories.operation_repository import OperationRepository
-from banking.domains.errors import NotFoundError
 from banking.domains.operation import (
-    Operation,
+    MonthRecap,
     OperationFilter,
     OperationRow,
     OperationSort,
@@ -28,19 +27,9 @@ class OperationService:
         """The operations table: the operations the filter keeps, sorted."""
         return self.operations.list_filtered(operation_filter, sort)
 
-    def get(self, operation_id: int) -> Operation:
-        """The operation with this id.
-
-        Raises:
-            NotFoundError: no such operation.
-        """
-        if (operation := self.operations.get(operation_id)) is None:
-            raise NotFoundError
-        return operation
-
-    def list_for_account(self, account_id: int) -> Sequence[Operation]:
-        """An account's operations, newest first; a closed account keeps them."""
-        return self.operations.list_for_account(account_id)
+    def recap(self, account_id: int) -> Sequence[MonthRecap]:
+        """An account's months, latest first: operations, labelled and unlabelled."""
+        return self.operations.count_by_month(account_id)
 
     @staticmethod
     def similar_ids(rows: Sequence[OperationRow], operation_id: int) -> Sequence[int]:

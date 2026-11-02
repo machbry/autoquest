@@ -5,6 +5,7 @@ install. It writes through the services, like the app. Re-running it adds nothin
 """
 
 import logging
+from collections import defaultdict
 from datetime import date, timedelta
 
 from faker import Faker
@@ -14,7 +15,7 @@ from banking.databases.engine import get_engine
 from banking.domains.account import Account, AccountFields, AccountType
 from banking.domains.bank import BankFields
 from banking.domains.category import CategoryFields
-from banking.domains.label import LabelFields
+from banking.domains.operation import OperationFilter, OperationSort
 from banking.services.accounts.account_service import AccountService
 from banking.services.banks.bank_service import BankService
 from banking.services.categories.category_service import CategoryService
@@ -119,26 +120,26 @@ def _seed_categories(session: Session) -> int:
 def _seed_labels(session: Session, account: Account) -> int:
     """Label the first export's operations, leaving the later ones unlabelled.
 
-    Each operation gets its payee's category.
+    Each operation gets its payee's category, one bulk action per category.
     """
-    label_service = LabelService(session)
     categories = {
         category.name: category.id for category in CategoryService(session).list()
     }
-    labelled = label_service.list_for_account(account.id)
-    operations = OperationService(session).list_for_account(account.id)
-    added = 0
-    for operation in operations:
-        if operation.operation_date > EXPORT_DATES[0] or operation.id in labelled:
-            continue
+    unlabelled = OperationService(session).list(
+        OperationFilter(account_id=account.id, uncategorized=True), OperationSort()
+    )
+    by_category = defaultdict(list)
+    for row in unlabelled:
+        operation = row.operation
         # None for operations seeded before the payee pool existed: left unlabelled.
         payee = next((p for p in PAYEE_CATEGORIES if p in operation.description), None)
-        if payee is None:
-            continue
-        category_id = categories[PAYEE_CATEGORIES[payee]]
-        label_service.create(operation.id, LabelFields(category_id))
-        added += 1
-    return added
+        if operation.operation_date <= EXPORT_DATES[0] and payee is not None:
+            by_category[categories[PAYEE_CATEGORIES[payee]]].append(operation.id)
+    label_service = LabelService(session)
+    return sum(
+        label_service.set_category(ids, category_id)
+        for category_id, ids in by_category.items()
+    )
 
 
 def _seed_imports(session: Session, account: Account) -> int:

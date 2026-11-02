@@ -1,26 +1,6 @@
 {# A field's validation error, from the `errors` dict of the page. #}
 {% macro error(field) %}{% if errors[field] %}<span class="error">{{ errors[field] }}</span>{% endif %}{% endmacro %}
 
-{# An operation, as the label page shows it above its form. #}
-{% macro operation_details(operation) %}
-<dl>
-  <dt>Date</dt><dd>{{ operation.operation_date }}</dd>
-  <dt>Description</dt><dd>{{ operation.description }}</dd>
-  <dt>Amount</dt><dd>{{ operation.amount }}</dd>
-</dl>
-{% endmacro %}
-
-{# A label's field: its category; optional where a new one can be named instead. #}
-{% macro label_fields(categories, autofocus_category=False, required=True) %}
-<label>Category
-  <select name="category_id"{% if required %} required{% endif %}{% if autofocus_category %} autofocus{% endif %}>
-    <option value="">Choose a category</option>
-    {% for category in categories %}<option value="{{ category.id }}"{% if values.category_id|string == category.id|string %} selected{% endif %}>{{ category.name }}</option>{% endfor %}
-  </select>
-</label>
-{{ error("category_id") }}
-{% endmacro %}
-
 {# How fresh an account's data is: days since the date of its latest imported file. #}
 {% macro freshness_label(freshness) -%}
 {% if freshness.status == "never" %}<span class="muted">Never imported</span>

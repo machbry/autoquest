@@ -29,8 +29,8 @@ only): `docker compose down -v`.
 ## Interfaces
 | Interface | Description |
 | --- | --- |
-| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there. The account page lists the operations with their labels; "Add label" or "Edit label" sets one in place |
-| `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary, imported files and operations |
+| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there. The account page shows a monthly recap (operations, labelled, unlabelled), each month linking to the operations table |
+| `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary and imported files |
 | `GET /banks` | Banks list; create, rename, or delete a bank no account uses |
 | `GET /categories` | Categories list with label counts; create, rename, merge into another, or delete a category no label uses |
 | `GET /operations` | Operations table across accounts: filters kept in the address, each optional (`bank`, `account`, `category` ids, `category=none` for unlabelled; `month=YYYY-MM`), sort on any column (`sort`, `order`; newest first by default). Select rows one by one, all shown (`select=all`) or similar to one (`similar_to`), 500 at most; selected rows come first |
@@ -48,8 +48,7 @@ all accounts since end 2024, for under 30 minutes of upkeep a month.
 
 | | Feature | Why | Issue |
 |---|---|---|---|
-| Now | Operations table: filter, sort, categorize in bulk (replaces the labelling queue; account page shows a monthly recap) | Monthly labelling in ≤ 15 min, and one place to review and fix labels across accounts | [#39](https://github.com/machbry/autoquest/issues/39) |
-| Next | Clean, consistent look | ~30 min a month in the app; pages easier to scan | [#35](https://github.com/machbry/autoquest/issues/35) |
+| Now | Clean, consistent look | ~30 min a month in the app; pages easier to scan | [#35](https://github.com/machbry/autoquest/issues/35) |
 | Next | Deploy: private, in the cloud, durable data | Required before the other Next items; data survives a laptop loss | [#14](https://github.com/machbry/autoquest/issues/14) |
 | Next | Monthly analysis: spending by category, savings rate, net worth | Turns labels into the objective's answers | |
 | Next | Internal transfer detection | Without it, transfers inflate spending and distort savings rate | |
@@ -62,4 +61,4 @@ all accounts since end 2024, for under 30 minutes of upkeep a month.
 
 Dependencies: analysis needs labels; savings rate needs transfer detection; net worth needs
 balances. PDF backfill depends on riskiest assumption 3 (statements add up): test it before
-speccing. #35 comes after the operations table, so the final pages are restyled once.
+speccing.

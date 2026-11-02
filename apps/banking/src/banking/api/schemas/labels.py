@@ -2,17 +2,11 @@
 
 from typing import Annotated
 
-from pydantic import BaseModel, BeforeValidator, Field, ValidationInfo, field_validator
+from pydantic import BeforeValidator, Field, ValidationInfo, field_validator
 
-from banking.api.schemas.common import BoundedId, OptionalId
+from banking.api.schemas.common import OptionalId
 from banking.api.schemas.operations import Ids, OperationFilterForm
 from banking.domains.operation import MAX_SELECTION
-
-
-class LabelForm(BaseModel):
-    """Fields of the in-place label form: the category."""
-
-    category_id: BoundedId
 
 
 class SelectionForm(OperationFilterForm):

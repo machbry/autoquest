@@ -28,13 +28,19 @@
   <button type="submit">Import</button>
 </form>
 
-<h2>Operations</h2>
-{% if operations %}
+<h2>Operations by month</h2>
+{% if recap %}
 <table>
-  <thead><tr><th>Date</th><th>Description</th><th class="num">Amount</th><th>Category</th><th></th></tr></thead>
+  <thead><tr><th>Month</th><th class="num">Operations</th><th class="num">Labelled</th><th class="num">Unlabelled</th></tr></thead>
   <tbody>
-    {% for operation in operations %}
-    {% with label = labels.get(operation.id), focus = False %}{% include "labels/row.html" %}{% endwith %}
+    {% for item in recap %}
+    {% set month = "%04d-%02d" % (item.month.year, item.month.month) %}
+    <tr>
+      <td><a href="/operations?account={{ account.id }}&amp;month={{ month }}">{{ month }}</a></td>
+      <td class="num">{{ item.operations }}</td>
+      <td class="num">{{ item.labelled }}</td>
+      <td class="num">{% if item.unlabelled %}<a href="/operations?account={{ account.id }}&amp;category=none&amp;month={{ month }}">{{ item.unlabelled }}</a>{% else %}0{% endif %}</td>
+    </tr>
     {% endfor %}
   </tbody>
 </table>

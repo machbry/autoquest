@@ -1,3 +1,6 @@
+import re
+from datetime import date
+
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -268,3 +271,35 @@ def test_database_enforces_account_invariants(session, bank, overrides):
             ),
             row,
         )
+
+
+def test_account_page_recaps_operations_by_month(
+    client, account, add_operation, add_label, groceries
+):
+    october = [add_operation(date(2026, 10, day)) for day in (1, 31)]
+    add_label(october[0], groceries)
+    add_operation(date(2026, 11, 2), "other")
+
+    page = re.sub(r"\s+", " ", client.get(f"/accounts/{account.id}").text)
+
+    rows = re.findall(
+        r"<tr> <td><a href=\"([^\"]+)\">([\d-]+)</a></td>(.*?)</tr>", page
+    )
+    assert [(href, month) for href, month, _ in rows] == [
+        (f"/operations?account={account.id}&amp;month=2026-11", "2026-11"),
+        (f"/operations?account={account.id}&amp;month=2026-10", "2026-10"),
+    ]
+    counts = [
+        re.findall(r'class="num">(?:<a [^>]*>)?(\d+)', cells) for *_, cells in rows
+    ]
+    assert counts == [["1", "0", "1"], ["2", "1", "1"]]
+    assert (
+        f'href="/operations?account={account.id}&amp;category=none&amp;month=2026-10"'
+        in page
+    )
+    # The recap replaces the operation list.
+    assert "LABELTEST" not in page
+
+
+def test_account_without_operations_says_so(client, account):
+    assert "No operation yet." in client.get(f"/accounts/{account.id}").text
