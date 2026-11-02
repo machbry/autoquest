@@ -14,10 +14,13 @@ from banking.databases.engine import get_engine
 from banking.domains.account import Account, AccountFields, AccountType
 from banking.domains.bank import BankFields
 from banking.domains.category import CategoryFields
+from banking.domains.label import LabelFields
 from banking.services.accounts.account_service import AccountService
 from banking.services.banks.bank_service import BankService
 from banking.services.categories.category_service import CategoryService
 from banking.services.imports.import_service import ImportService
+from banking.services.labels.label_service import LabelService
+from banking.services.operations.operation_service import OperationService
 from banking.tools.fakes import build_export, fake_operations
 
 logger = logging.getLogger(__name__)
@@ -47,6 +50,18 @@ CATEGORIES = [
     "Salary",
     "Internal transfer",
 ]
+# The label of each fake payee (see `fakes.PAYEES`): category and tags.
+PAYEE_LABELS = {
+    "SUPERMARCHE DU CENTRE": ("Groceries", ()),
+    "BOULANGERIE DU PORT": ("Groceries", ("Bakery",)),
+    "RESTAURANT LE ZINC": ("Restaurants", ()),
+    "CINEMA LUMIERE": ("Leisure", ("Cinema",)),
+    "PHARMACIE CENTRALE": ("Health", ()),
+    "ENERGIE PLUS": ("Housing", ("Electricity",)),
+    "TELECOM MOBILE": ("Housing", ("Phone",)),
+    "TRANSPORTS URBAINS": ("Transport", ()),
+    "EMPLOYEUR SA": ("Salary", ()),
+}
 # Two 90-day exports overlapping by 43 days, as regular exports would.
 IMPORTED_ACCOUNT = "Current account"
 EXPORT_DATES = (date(2026, 6, 15), date(2026, 8, 1))
@@ -54,7 +69,7 @@ EXPORT_WINDOW_DAYS = 90
 
 
 def seed(session: Session) -> int:
-    """Add the fake banks, accounts, imports and categories missing; count them."""
+    """Add the fake banks, accounts, imports, categories and labels missing; count."""
     bank_service, account_service = BankService(session), AccountService(session)
     banks = {bank.name: bank.id for bank in bank_service.list()}
     existing = {account.name for account in account_service.list()}
@@ -86,7 +101,9 @@ def seed(session: Session) -> int:
         added += 1
 
     current = next(a for a in account_service.list() if a.name == IMPORTED_ACCOUNT)
-    return added + _seed_imports(session, current) + _seed_categories(session)
+    added += _seed_imports(session, current)
+    added += _seed_categories(session)
+    return added + _seed_labels(session, current)
 
 
 def _seed_categories(session: Session) -> int:
@@ -97,6 +114,32 @@ def _seed_categories(session: Session) -> int:
     for name in missing:
         category_service.create(CategoryFields(name=name))
     return len(missing)
+
+
+def _seed_labels(session: Session, account: Account) -> int:
+    """Label the first export's operations, leaving the later ones in the queue.
+
+    Oldest first, as in the queue: the first operation of each payee is labelled by
+    hand, the next ones accept the suggestion.
+    """
+    label_service = LabelService(session)
+    categories = {
+        category.name: category.id for category in CategoryService(session).list()
+    }
+    labelled = label_service.list_for_account(account.id)
+    operations = reversed(OperationService(session).list_for_account(account.id))
+    added = 0
+    for operation in operations:
+        if operation.operation_date > EXPORT_DATES[0] or operation.id in labelled:
+            continue
+        # None for operations seeded before the payee pool existed: left unlabelled.
+        payee = next((p for p in PAYEE_LABELS if p in operation.description), None)
+        if payee is None:
+            continue
+        category, tags = PAYEE_LABELS[payee]
+        label_service.create(operation.id, LabelFields(categories[category], tags))
+        added += 1
+    return added
 
 
 def _seed_imports(session: Session, account: Account) -> int:
@@ -127,7 +170,9 @@ def main() -> None:
         level=logging.INFO, format="%(levelname)s %(name)s: %(message)s"
     )
     with Session(get_engine()) as session:
-        logger.info("%d banks, accounts, imports and categories added", seed(session))
+        logger.info(
+            "%d banks, accounts, imports, categories, labels added", seed(session)
+        )
 
 
 if __name__ == "__main__":

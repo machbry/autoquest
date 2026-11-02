@@ -3,8 +3,11 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
     hooks:
+      # Vendored files stay byte for byte as published, so their checksum holds.
       - id: trailing-whitespace
+        exclude: ^apps/banking/src/banking/api/static/
       - id: end-of-file-fixer
+        exclude: ^apps/banking/src/banking/api/static/
       - id: check-yaml
       - id: check-toml
       - id: check-added-large-files

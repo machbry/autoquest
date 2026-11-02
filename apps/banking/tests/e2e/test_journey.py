@@ -14,10 +14,11 @@ from banking.tools.fakes import build_export
 BASE_URL = os.environ.get("BANKING_E2E_URL", "http://127.0.0.1:8000")
 
 
-def test_declare_an_account_import_its_export_then_delete_it():
+def test_declare_an_account_import_label_its_operations_then_delete_it():
     # Unique names: the running stack's database outlives the test.
     suffix = uuid4().hex[:8]
     bank, account, number = f"E2E bank {suffix}", f"E2E {suffix}", suffix.upper()
+    category = f"E2E category {suffix}"
     today = date.today()
     operations = [
         OperationFields(today - timedelta(days=3), "CB E2E SHOP", Decimal("-9.99")),
@@ -60,8 +61,43 @@ def test_declare_an_account_import_its_export_then_delete_it():
         assert "File dated 2 days ago" in page
         assert page.count("CB E2E SHOP") == 2
 
-        # Cleaning up is part of the journey: the account, then its now unused bank.
+        # Label the first operation by hand: its identical copy gets the suggestion.
+        assert client.post("/categories", data={"name": category}).status_code == 303
+        category_id = re.search(
+            rf'<td>{category}</td>.*?href="/categories/(\d+)/edit"',
+            client.get("/categories").text,
+            re.DOTALL,
+        )[1]
+        queue_url = f"/labels/new?account_id={account_url.rsplit('/', 1)[1]}"
+        page = client.get(queue_url).text
+        assert "3 to label" in page
+        assert "Suggested from" not in page
+        label = {
+            "operation_id": operation_id(page),
+            "account_id": account_url.rsplit("/", 1)[1],
+            "category_id": category_id,
+            "tag_1": "E2E",
+        }
+        assert client.post("/labels", data=label).status_code == 303
+        page = client.get(queue_url).text
+        assert "2 to label" in page
+        assert f"Suggested from the operation of {today - timedelta(days=3)}." in page
+        response = client.post(
+            "/labels", data=label | {"operation_id": operation_id(page)}
+        )
+        assert response.status_code == 303
+        assert "1 to label" in client.get(queue_url).text
+        assert client.get(account_url).text.count(f"<td>{category}</td>") == 2
+
+        # Cleaning up is part of the journey: the account (and its labels), then the
+        # now unused category and bank.
         assert client.post(f"{account_url}/delete").status_code == 303
         assert account not in client.get("/accounts").text
+        assert client.post(f"/categories/{category_id}/delete").status_code == 303
         assert client.post(f"/banks/{bank_id}/delete").status_code == 303
         assert bank not in client.get("/banks").text
+
+
+def operation_id(page: str) -> str:
+    """The id of the operation the queue page shows."""
+    return re.search(r'name="operation_id" value="(\d+)"', page)[1]

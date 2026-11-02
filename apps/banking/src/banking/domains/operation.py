@@ -19,6 +19,7 @@ class Operation:
     """A stored operation; identical ones on the same day are distinct operations."""
 
     id: int
+    account_id: int
     operation_date: date
     description: str
     amount: Decimal

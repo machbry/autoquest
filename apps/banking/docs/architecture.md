@@ -63,7 +63,18 @@ at fault.
 - **`labels`**: at most one per operation (`operation_id` primary key, `ON DELETE
   CASCADE`): `category_id`, free-text `tags` (an array: tags are never renamed or merged),
   optional `note`, `source` (`suggestion` accepted or `manual`, `CHECK`), and `created_at`
-  for the labelling-time metric.
+  for the labelling-time metric. "Same as last time": two operations match when their
+  descriptions do once every word holding a digit is dropped (card date, card number,
+  references), ignoring case and spacing. The suggestion is the latest matching label,
+  computed on each request rather than stored, so the rule can be tuned. The server decides
+  the `source`, never the client.
+
+## Front end
+Server-rendered pages and plain forms. htmx is used only to edit a label in place on the
+account page, and every htmx link or form also works without JavaScript. It is vendored
+and pinned (`src/banking/api/static/htmx-<version>.min.js`, checked against npm's checksum
+when vendoring) and served by the app: no third-party origin at runtime. Dependabot can't
+see it, so upgrades are made by hand, and the version in the file name keeps them visible.
 
 ## Security
 TODO: defined with #14.

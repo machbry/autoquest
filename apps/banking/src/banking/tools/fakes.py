@@ -11,7 +11,21 @@ from faker import Faker
 
 from banking.domains.operation import OperationFields
 
-KINDS = ("CB", "PRLV SEPA", "VIREMENT DE", "ACHAT CB")
+# A small pool of payees, so descriptions recur as in a real account: the seed labels
+# them, and the queue then suggests last time's label.
+PAYEES = (
+    ("ACHAT CB", "SUPERMARCHE DU CENTRE"),
+    ("ACHAT CB", "BOULANGERIE DU PORT"),
+    ("CB", "RESTAURANT LE ZINC"),
+    ("CB", "CINEMA LUMIERE"),
+    ("ACHAT CB", "PHARMACIE CENTRALE"),
+    ("PRLV SEPA", "ENERGIE PLUS"),
+    ("PRLV SEPA", "TELECOM MOBILE"),
+    ("PRLV SEPA", "TRANSPORTS URBAINS"),
+    ("VIREMENT DE", "EMPLOYEUR SA"),
+)
+# Card payments end with noise the "same as last time" rule must ignore.
+CARD_KINDS = ("CB", "ACHAT CB")
 
 
 def build_export(
@@ -46,11 +60,15 @@ def fake_operations(fake: Faker, first: date, last: date) -> list[OperationField
     operations = []
     for offset in range((last - first).days + 1):
         for _ in range(fake.random_int(0, 5)):
-            kind, payee = fake.random_element(KINDS), fake.company().upper()
+            day = first + timedelta(days=offset)
+            kind, payee = fake.random_element(PAYEES)
+            description = f"{kind} {payee}"
+            if kind in CARD_KINDS:
+                description += f" {day:%d.%m.%y} CARTE NUMERO 123"
             operations.append(
                 OperationFields(
-                    operation_date=first + timedelta(days=offset),
-                    description=f"{kind} {payee}",
+                    operation_date=day,
+                    description=description,
                     amount=Decimal(fake.random_int(-15000, 5000)) / 100,
                 )
             )

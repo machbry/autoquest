@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "macros.html" import error, label_fields, operation_details with context %}
+{# Two pages: the queue (`queue` set) and a label's edit page without JavaScript. #}
+{% block title %}{{ "Label operations" if queue else "Edit label" }} · Banking{% endblock %}
+{% block content %}
+{% if queue %}
+<h1>Label operations</h1>
+<form method="get" action="/labels/new">
+  <label>Account
+    <select name="account_id">
+      <option value="">All accounts</option>
+      {% for account in accounts %}<option value="{{ account.id }}"{% if filter_values.account_id == account.id|string %} selected{% endif %}>{{ account.name }}</option>{% endfor %}
+    </select>
+  </label>
+  {{ error("account_id") }}
+  <label>Month <input type="month" name="month" value="{{ filter_values.month or '' }}" placeholder="YYYY-MM"></label>
+  {{ error("month") }}
+  <button type="submit">Filter</button>
+  <a href="/labels/new">All operations</a>
+</form>
+
+{% if queue.operation %}
+{% set operation = queue.operation %}
+<p><strong>{{ queue.remaining }} to label</strong></p>
+{{ operation_details(operation, account_names[operation.account_id]) }}
+{% if categories %}
+<form class="stacked" method="post" action="/labels">
+  <input type="hidden" name="operation_id" value="{{ operation.id }}">
+  {% for field, value in filter_values.items() %}<input type="hidden" name="{{ field }}" value="{{ value }}">{% endfor %}
+  {% if queue.suggestion %}<p class="muted">Suggested from the operation of {{ queue.suggestion.from_date }}.</p>{% endif %}
+  {{ label_fields(categories, tags, autofocus_category=not queue.suggestion) }}
+  <button type="submit" name="scope" value="one"{% if queue.suggestion %} autofocus{% endif %}>Save</button>
+  {% if queue.similar_ids %}
+  <button type="submit" name="scope" value="similar">Save for all {{ queue.similar_ids | length + 1 }} similar</button>
+  {% endif %}
+</form>
+{% else %}
+<p>No category yet: <a href="/categories">add a category</a> first.</p>
+{% endif %}
+{% else %}
+<p>Nothing to label.</p>
+{% endif %}
+
+{% else %}
+<h1>Edit label</h1>
+{{ operation_details(operation) }}
+<form class="stacked" method="post" action="/labels/{{ operation.id }}">
+  {{ label_fields(categories, tags, autofocus_category=True) }}
+  <button type="submit">Save</button>
+  <a href="/accounts/{{ operation.account_id }}#operation-{{ operation.id }}">Cancel</a>
+</form>
+{% endif %}
+{% endblock %}

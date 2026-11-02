@@ -80,14 +80,14 @@ def test_import_stores_every_operation_and_shows_a_summary(
     client, session, account_url, fake
 ):
     operations = fake_operations(fake, TODAY - timedelta(days=89), TODAY)
-    first = min(row.operation_date for row in operations)
+    dates = [row.operation_date for row in operations]
 
     page = imported(client, account_url, export(operations))
 
     n = len(operations)
     assert count(session, OperationModel, account_url) == n
     assert f"{n} rows in the file: {n} new, 0 already known." in page
-    assert f"Operations from {first} to {TODAY}." in page
+    assert f"Operations from {min(dates)} to {max(dates)}." in page
 
 
 def test_importing_the_same_file_again_adds_nothing(client, session, account_url, fake):

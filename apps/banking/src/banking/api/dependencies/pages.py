@@ -9,13 +9,14 @@ from fastapi.responses import HTMLResponse
 from banking.api.dependencies.services import (
     AccountServiceDep,
     ImportServiceDep,
+    LabelServiceDep,
     OperationServiceDep,
 )
 from banking.api.rendering import render
 
 
 class AccountPage:
-    """An account's page: details, freshness, import form and history, operations.
+    """An account's page: details, freshness, imports, operations and their labels.
 
     The account routes and the import route both render it, with their own errors.
     """
@@ -25,9 +26,11 @@ class AccountPage:
         accounts: AccountServiceDep,
         imports: ImportServiceDep,
         operations: OperationServiceDep,
+        labels: LabelServiceDep,
     ) -> None:
         """Use the request's services."""
-        self.accounts, self.imports, self.operations = accounts, imports, operations
+        self.accounts, self.imports = accounts, imports
+        self.operations, self.labels = operations, labels
 
     def render(
         self,
@@ -54,6 +57,7 @@ class AccountPage:
             imports=history,
             summary=next((item for item in history if item.id == summary_id), None),
             operations=self.operations.list_for_account(account_id),
+            labels=self.labels.list_for_account(account_id),
             **context,
         )
 
