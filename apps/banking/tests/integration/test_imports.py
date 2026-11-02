@@ -220,8 +220,9 @@ def test_closed_account_keeps_its_operations_and_still_imports(client, account_u
     response = client.post(f"{account_url}/close", data={"closed_on": str(TODAY)})
     assert response.status_code == 303
 
-    page = imported(client, account_url, export([operation(description="CB LAST ONE")]))
+    imported(client, account_url, export([operation(description="CB LAST ONE")]))
 
+    page = client.get("/operations", params={"account": account_id(account_url)}).text
     assert "CB BEFORE CLOSE" in page
     assert "CB LAST ONE" in page
 

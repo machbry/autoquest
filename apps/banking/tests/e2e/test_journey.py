@@ -59,7 +59,9 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
         page = client.get(response.headers["location"]).text
         assert "3 rows in the file: 3 new, 0 already known." in page
         assert "File dated 2 days ago" in page
-        assert page.count("CB E2E SHOP") == 2
+        # The account page recaps its months, each linking to the operations table.
+        for month in {f"{operation.operation_date:%Y-%m}" for operation in operations}:
+            assert f"month={month}" in page
 
         # In the operations table, select the copies of the shop operation with
         # "Similar", then give them the category at once.
@@ -88,6 +90,8 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
             "/operations", params={"account": account_id, "category": category_id}
         ).text
         assert operation_ids(labelled) == shop
+        # One operation is left to label: the recap links to it.
+        assert "category=none&amp;month=" in client.get(account_url).text
 
         # Cleaning up is part of the journey: the account (and its labels), then the
         # now unused category and bank.

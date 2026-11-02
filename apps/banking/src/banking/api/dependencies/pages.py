@@ -12,7 +12,6 @@ from banking.api.dependencies.services import (
     BankServiceDep,
     CategoryServiceDep,
     ImportServiceDep,
-    LabelServiceDep,
     OperationServiceDep,
 )
 from banking.api.rendering import render
@@ -20,7 +19,7 @@ from banking.domains.operation import MAX_SELECTION, OperationFilter, OperationS
 
 
 class AccountPage:
-    """An account's page: details, freshness, imports, operations and their labels.
+    """An account's page: details, freshness, imports and the monthly recap.
 
     The account routes and the import route both render it, with their own errors.
     """
@@ -30,11 +29,10 @@ class AccountPage:
         accounts: AccountServiceDep,
         imports: ImportServiceDep,
         operations: OperationServiceDep,
-        labels: LabelServiceDep,
     ) -> None:
         """Use the request's services."""
         self.accounts, self.imports = accounts, imports
-        self.operations, self.labels = operations, labels
+        self.operations = operations
 
     def render(
         self,
@@ -60,8 +58,7 @@ class AccountPage:
             freshness=self.accounts.get_freshness(account_id),
             imports=history,
             summary=next((item for item in history if item.id == summary_id), None),
-            operations=self.operations.list_for_account(account_id),
-            labels=self.labels.list_for_account(account_id),
+            recap=self.operations.recap(account_id),
             **context,
         )
 

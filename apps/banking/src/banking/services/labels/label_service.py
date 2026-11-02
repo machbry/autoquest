@@ -1,18 +1,14 @@
-"""Labels: giving operations a category, one by one or in bulk."""
+"""Labels: giving operations a category, or taking it away, in bulk."""
 
 import logging
-from collections.abc import Collection, Iterator, Mapping, Sequence
-from contextlib import contextmanager
-from dataclasses import asdict
+from collections.abc import Collection, Sequence
 
 from sqlalchemy.orm import Session
 
-from banking.databases.repositories.base import ConstraintViolation
 from banking.databases.repositories.category_repository import CategoryRepository
 from banking.databases.repositories.label_repository import LabelRepository
 from banking.databases.repositories.operation_repository import OperationRepository
-from banking.domains.errors import ConflictError, InvalidError, NotFoundError
-from banking.domains.label import Label, LabelFields
+from banking.domains.errors import InvalidError, NotFoundError
 from banking.domains.operation import Operation
 from banking.services.constraints import invalid_on
 
@@ -26,18 +22,6 @@ NEW_CATEGORY_ERRORS = {
 }
 
 
-@contextmanager
-def _save_errors() -> Iterator[None]:
-    """Turn the constraints a label write can break into domain errors."""
-    try:
-        with invalid_on(SAVE_ERRORS):
-            yield
-    except ConstraintViolation as exc:
-        if exc.constraint != "pk_labels":
-            raise
-        raise ConflictError("This operation already has a label.") from exc
-
-
 class LabelService:
     """Use cases on labels; each write is one transaction."""
 
@@ -47,54 +31,6 @@ class LabelService:
         self.labels = LabelRepository(session)
         self.operations = OperationRepository(session)
         self.categories = CategoryRepository(session)
-
-    def get(self, operation_id: int) -> Label:
-        """The label of this operation.
-
-        Raises:
-            NotFoundError: no such label.
-        """
-        if (label := self.labels.get(operation_id)) is None:
-            raise NotFoundError
-        return label
-
-    def find(self, operation_id: int) -> Label | None:
-        """The label of this operation; None if it has none yet."""
-        return self.labels.get(operation_id)
-
-    def list_for_account(self, account_id: int) -> Mapping[int, Label]:
-        """An account's labels, by operation id."""
-        return self.labels.list_for_account(account_id)
-
-    def create(self, operation_id: int, fields: LabelFields) -> Label:
-        """Label an operation.
-
-        Raises:
-            NotFoundError: no such operation.
-            InvalidError: the category no longer exists.
-            ConflictError: the operation already has a label.
-        """
-        self._operation(operation_id)
-        with _save_errors():
-            label = self.labels.create({"operation_id": operation_id, **asdict(fields)})
-        self.session.commit()
-        logger.info("label %s created", operation_id)
-        return label
-
-    def update(self, operation_id: int, fields: LabelFields) -> Label:
-        """Change a label's category.
-
-        Raises:
-            NotFoundError: no such label.
-            InvalidError: the category no longer exists.
-        """
-        with _save_errors():
-            label = self.labels.update(operation_id, asdict(fields))
-        if label is None:
-            raise NotFoundError
-        self.session.commit()
-        logger.info("label %s updated", operation_id)
-        return label
 
     def set_category(
         self,
@@ -136,11 +72,6 @@ class LabelService:
         self.session.commit()
         logger.info("labels deleted on %d operations", deleted)
         return deleted
-
-    def _operation(self, operation_id: int) -> Operation:
-        if (operation := self.operations.get(operation_id)) is None:
-            raise NotFoundError
-        return operation
 
     def _operations(self, operation_ids: Collection[int]) -> Sequence[Operation]:
         """The operations with these ids; NotFoundError if one doesn't exist."""

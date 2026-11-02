@@ -65,6 +65,20 @@ class OperationSort:
 
 
 @dataclass(frozen=True)
+class MonthRecap:
+    """An account's month: how many operations, and how many of them are labelled."""
+
+    month: date  # its first day
+    operations: int
+    labelled: int
+
+    @property
+    def unlabelled(self) -> int:
+        """Operations of the month still without a category."""
+        return self.operations - self.labelled
+
+
+@dataclass(frozen=True)
 class OperationRow:
     """A row of the operations table."""
 

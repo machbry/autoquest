@@ -4,7 +4,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, Date, func, select
 
 from banking.databases.models import (
     AccountModel,
@@ -16,6 +16,7 @@ from banking.databases.repositories.base import Repository
 from banking.domains.category import Category
 from banking.domains.label import Label
 from banking.domains.operation import (
+    MonthRecap,
     Operation,
     OperationFields,
     OperationFilter,
@@ -66,15 +67,6 @@ class OperationRepository(Repository[OperationModel, Operation]):
             amount=row.amount,
         )
 
-    def list_for_account(self, account_id: int) -> Sequence[Operation]:
-        """An account's operations, newest first."""
-        rows = self.session.scalars(
-            select(OperationModel)
-            .filter_by(account_id=account_id)
-            .order_by(OperationModel.operation_date.desc(), OperationModel.id.desc())
-        )
-        return [self.to_domain(row) for row in rows]
-
     def list_filtered(
         self, operation_filter: OperationFilter, sort: OperationSort
     ) -> Sequence[OperationRow]:
@@ -110,6 +102,18 @@ class OperationRepository(Repository[OperationModel, Operation]):
             )
             for operation, account_name, label, category in rows
         ]
+
+    def count_by_month(self, account_id: int) -> Sequence[MonthRecap]:
+        """An account's operations and labels counted by month, latest first."""
+        month = func.date_trunc("month", OperationModel.operation_date).cast(Date)
+        rows = self.session.execute(
+            select(month, func.count(), func.count(LabelModel.operation_id))
+            .outerjoin(LabelModel, LabelModel.operation_id == OperationModel.id)
+            .where(OperationModel.account_id == account_id)
+            .group_by(month)
+            .order_by(month.desc())
+        )
+        return [MonthRecap(*row) for row in rows]
 
     def list_by_ids(self, operation_ids: Collection[int]) -> Sequence[Operation]:
         """The operations with these ids; unknown ids are left out."""

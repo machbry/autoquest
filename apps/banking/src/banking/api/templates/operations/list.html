@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "macros.html" import error, label_fields with context %}
+{% from "macros.html" import error with context %}
 {% block title %}Operations · Banking{% endblock %}
 
 {# A sortable column's header: a link that sorts on it, then toggles the order. #}
@@ -52,7 +52,13 @@
   {% for name, value in query.params() %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
   {# "Set category" comes first: Enter in the name field uses the first button. #}
   <p>
-    {{ label_fields(categories, required=False) }}
+    <label>Category
+      <select name="category_id">
+        <option value="">Choose a category</option>
+        {% for category in categories %}<option value="{{ category.id }}"{% if values.category_id|string == category.id|string %} selected{% endif %}>{{ category.name }}</option>{% endfor %}
+      </select>
+    </label>
+    {{ error("category_id") }}
     <label>or new category <input type="text" name="new_category" maxlength="50" value="{{ values.new_category or '' }}"></label>
     <button type="submit">Set category</button>
     {{ error("new_category") }}

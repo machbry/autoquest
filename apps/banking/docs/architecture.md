@@ -19,7 +19,7 @@ mark planned components. Source: [architecture.py](architecture.py).
 ## Components
 | Component | Runs on | Features it supports |
 | --- | --- | --- |
-| **Web app** (FastAPI + HTMX) | Cloud Run | Banks (add, rename, delete); accounts (declare, edit, close, delete); statement import with summary and freshness indicator; categories (add, rename, merge); operations table (filters, sort, bulk labelling); manual operations and balances; corrections; monthly analysis pages |
+| **Web app** (FastAPI + HTMX) | Cloud Run | Banks (add, rename, delete); accounts (declare, edit, close, delete); statement import with summary and freshness indicator; categories (add, rename, merge); operations table (filters, sort, bulk labelling); account monthly recap; manual operations and balances; corrections; monthly analysis pages |
 | **Importers** (one module per bank/format, inside the web app) | Cloud Run | Banque Postale CSV; PDF statements; CFCAL and Fortuneo files; bank/account auto-detection |
 | **Postgres** | Neon (`prd`), Docker (`loc`) | Stores all app data, for every feature |
 | **dbt** (dbt-postgres) | Jobs, models in Postgres | Monthly analysis: spending by category, savings rate, net worth; internal transfer reporting |
@@ -68,11 +68,10 @@ at fault.
   spacing. Computed on each request rather than stored, so the rule can be tuned.
 
 ## Front end
-Server-rendered pages and plain forms. htmx is used only to edit a label in place on the
-account page, and every htmx link or form also works without JavaScript. It is vendored
-and pinned (`src/banking/api/static/htmx-<version>.min.js`, checked against npm's checksum
-when vendoring) and served by the app: no third-party origin at runtime. Dependabot can't
-see it, so upgrades are made by hand, and the version in the file name keeps them visible.
+Server-rendered pages and plain forms, with no JavaScript for now: each action posts a form
+and redirects, and selecting rows in the operations table reloads the page. There is no
+front-end dependency to vendor or upgrade. htmx, the stack's default, comes back (vendored
+and pinned, served by the app) only where it clearly pays off.
 
 ## Security
 TODO: defined with #14.

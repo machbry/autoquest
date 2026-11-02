@@ -1,11 +1,11 @@
 """Data access to labels."""
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection
 
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, update
 from sqlalchemy.dialects.postgresql import insert
 
-from banking.databases.models import CategoryModel, LabelModel, OperationModel
+from banking.databases.models import CategoryModel, LabelModel
 from banking.databases.repositories.base import Repository
 from banking.domains.category import Category
 from banking.domains.label import Label
@@ -24,16 +24,6 @@ class LabelRepository(Repository[LabelModel, Label]):
             operation_id=row.operation_id,
             category=Category(id=category.id, name=category.name),
         )
-
-    def list_for_account(self, account_id: int) -> Mapping[int, Label]:
-        """An account's labels, by operation id."""
-        rows = self.session.execute(
-            select(LabelModel, CategoryModel)
-            .join(CategoryModel, CategoryModel.id == LabelModel.category_id)
-            .join(OperationModel, OperationModel.id == LabelModel.operation_id)
-            .where(OperationModel.account_id == account_id)
-        )
-        return {label.operation_id: self.to_domain(label) for label, _ in rows}
 
     def upsert_many(self, operation_ids: Collection[int], category_id: int) -> None:
         """Give operations a category.
