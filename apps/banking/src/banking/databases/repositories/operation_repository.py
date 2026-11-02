@@ -1,10 +1,10 @@
 """Data access to operations."""
 
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import ColumnElement, func, select
 
 from banking.databases.models import (
     AccountModel,
@@ -36,19 +36,18 @@ SORT_COLUMNS = {
 def _criteria(operation_filter: OperationFilter) -> list[ColumnElement[bool]]:
     """What the filter keeps, as conditions to combine."""
     criteria: list[ColumnElement[bool]] = []
-    if operation_filter.bank_ids:
-        criteria.append(AccountModel.bank_id.in_(operation_filter.bank_ids))
-    if operation_filter.account_ids:
-        criteria.append(OperationModel.account_id.in_(operation_filter.account_ids))
-    if operation_filter.category_ids or operation_filter.uncategorized:
-        categories = [LabelModel.category_id.in_(operation_filter.category_ids)]
-        if operation_filter.uncategorized:
-            categories.append(LabelModel.operation_id.is_(None))
-        criteria.append(or_(*categories))
-    if operation_filter.first is not None:
-        criteria.append(OperationModel.operation_date >= operation_filter.first)
-    if operation_filter.last is not None:
-        criteria.append(OperationModel.operation_date <= operation_filter.last)
+    if operation_filter.bank_id is not None:
+        criteria.append(AccountModel.bank_id == operation_filter.bank_id)
+    if operation_filter.account_id is not None:
+        criteria.append(OperationModel.account_id == operation_filter.account_id)
+    if operation_filter.category_id is not None:
+        criteria.append(LabelModel.category_id == operation_filter.category_id)
+    if operation_filter.uncategorized:
+        criteria.append(LabelModel.operation_id.is_(None))
+    if (month := operation_filter.month) is not None:
+        next_month = (month.replace(day=28) + timedelta(days=4)).replace(day=1)
+        criteria.append(OperationModel.operation_date >= month)
+        criteria.append(OperationModel.operation_date < next_month)
     return criteria
 
 

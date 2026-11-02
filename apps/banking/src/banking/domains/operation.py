@@ -9,8 +9,6 @@ from banking.domains.label import Label
 
 # Operations one bulk action (or selection) takes at most.
 MAX_SELECTION = 500
-# Choices one filter (banks, accounts, categories) takes at most.
-MAX_CHOICES = 100
 
 
 @dataclass(frozen=True)
@@ -35,18 +33,17 @@ class Operation:
 
 @dataclass(frozen=True)
 class OperationFilter:
-    """Narrows the operations table; an empty tuple or None filters nothing.
+    """Narrows the operations table; None filters nothing, the criteria combine.
 
-    The criteria combine (AND); the choices of one criterion are alternatives (OR).
-    `uncategorized` adds the operations without a category to `category_ids`.
+    `uncategorized` keeps only the operations without a category; `month` is the
+    month's first day.
     """
 
-    bank_ids: tuple[int, ...] = ()
-    account_ids: tuple[int, ...] = ()
-    category_ids: tuple[int, ...] = ()
+    bank_id: int | None = None
+    account_id: int | None = None
+    category_id: int | None = None
     uncategorized: bool = False
-    first: date | None = None
-    last: date | None = None
+    month: date | None = None
 
 
 class SortColumn(StrEnum):
