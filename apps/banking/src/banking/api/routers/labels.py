@@ -114,8 +114,10 @@ def _render_form(
     return response
 
 
-def _render_row(request: Request, operation: Operation, label: Label) -> HTMLResponse:
-    """The operation's row on the account page; focus goes back to its Edit link."""
+def _render_row(
+    request: Request, operation: Operation, label: Label | None
+) -> HTMLResponse:
+    """The operation's row on the account page; focus goes back to its link."""
     response = render(
         request, "labels/row.html", operation=operation, label=label, focus=True
     )
@@ -189,11 +191,25 @@ def edit_label(
     htmx: HtmxDep,
     operation_id: Id,
 ) -> HTMLResponse:
-    """Form to edit a label, prefilled with its current values."""
-    label = labels.get(operation_id)
-    values = _form_values(label.category.id, label.tags, label.note)
+    """Form to label an operation: its label's values, else last time's suggested."""
     operation = operations.get(operation_id)
-    return _render_form(request, labels, categories, operation, htmx, values=values)
+    suggestion = None
+    if (label := labels.find(operation_id)) is not None:
+        values = _form_values(label.category.id, label.tags, label.note)
+    elif (suggestion := labels.suggestion_for(operation_id)) is not None:
+        values = _form_values(suggestion.category_id, suggestion.tags, None)
+    else:
+        values = {}
+    return _render_form(
+        request,
+        labels,
+        categories,
+        operation,
+        htmx,
+        label=label,
+        suggestion=suggestion,
+        values=values,
+    )
 
 
 @router.post("/{operation_id}")
@@ -206,13 +222,20 @@ def update_label(
     data: FormDep,
     operation_id: Id,
 ) -> Response:
-    """Edit a label: the updated row for htmx, else back to the account page."""
-    labels.get(operation_id)
+    """Set an operation's label, created if it has none yet.
+
+    Answers the updated row for htmx, else goes back to the account page.
+    """
     operation = operations.get(operation_id)
+    current = labels.find(operation_id)
     form, errors = validate(LabelForm, data)
     if form is not None:
+        fields = form.to_fields()
         try:
-            label = labels.update(operation_id, form.to_fields())
+            if current is None:
+                label = labels.create(operation_id, fields)
+            else:
+                label = labels.update(operation_id, fields)
         except InvalidError as exc:
             errors = {exc.field: exc.message}
         else:
@@ -220,7 +243,15 @@ def update_label(
                 return _render_row(request, operation, label)
             return RedirectResponse(_row_url(operation), status_code=303)
     return _render_form(
-        request, labels, categories, operation, htmx, 422, values=data, errors=errors
+        request,
+        labels,
+        categories,
+        operation,
+        htmx,
+        422,
+        label=current,
+        values=data,
+        errors=errors,
     )
 
 
@@ -232,9 +263,8 @@ def show_label(
     htmx: HtmxDep,
     operation_id: Id,
 ) -> Response:
-    """A label's row, for htmx (the edit's Cancel); else back to the account page."""
-    label = labels.get(operation_id)
+    """An operation's row, for htmx (the form's Cancel); else back to the account."""
     operation = operations.get(operation_id)
     if not htmx:
         return RedirectResponse(_row_url(operation), status_code=303)
-    return _render_row(request, operation, label)
+    return _render_row(request, operation, labels.find(operation_id))

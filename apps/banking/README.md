@@ -29,7 +29,7 @@ only): `docker compose down -v`.
 ## Interfaces
 | Interface | Description |
 | --- | --- |
-| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there. The account page lists the operations with their labels; "Edit label" edits one in place |
+| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there. The account page lists the operations with their labels; "Add label" or "Edit label" sets one in place (last time's label suggested) |
 | `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary, imported files and operations |
 | `GET /banks` | Banks list; create, rename, or delete a bank no account uses |
 | `GET /categories` | Categories list with label counts; create, rename, merge into another, or delete a category no label uses |

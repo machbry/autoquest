@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "macros.html" import error, label_fields, operation_details with context %}
-{# Two pages: the queue (`queue` set) and a label's edit page without JavaScript. #}
-{% block title %}{{ "Label operations" if queue else "Edit label" }} · Banking{% endblock %}
+{# Two pages: the queue (`queue` set), and an operation's label form without JavaScript. #}
+{% block title %}{{ "Label operations" if queue else ("Edit label" if label else "Add label") }} · Banking{% endblock %}
 {% block content %}
 {% if queue %}
 <h1>Label operations</h1>
@@ -42,9 +42,10 @@
 {% endif %}
 
 {% else %}
-<h1>Edit label</h1>
+<h1>{{ "Edit label" if label else "Add label" }}</h1>
 {{ operation_details(operation) }}
 <form class="stacked" method="post" action="/labels/{{ operation.id }}">
+  {% if suggestion %}<p class="muted">Suggested from the operation of {{ suggestion.from_date }}.</p>{% endif %}
   {{ label_fields(categories, tags, autofocus_category=True) }}
   <button type="submit">Save</button>
   <a href="/accounts/{{ operation.account_id }}#operation-{{ operation.id }}">Cancel</a>

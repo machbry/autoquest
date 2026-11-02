@@ -2,12 +2,8 @@
   <td>{{ operation.operation_date }}</td>
   <td>{{ operation.description }}</td>
   <td class="num">{{ operation.amount }}</td>
-  {% if label %}
-  <td>{{ label.category.name }}</td>
-  <td>{{ label.tags | join(", ") }}</td>
+  <td>{{ label.category.name if label }}</td>
+  <td>{{ label.tags | join(", ") if label }}</td>
   <td><a href="/labels/{{ operation.id }}/edit" hx-get="/labels/{{ operation.id }}/edit"
-         hx-target="closest tr" hx-swap="outerHTML"{% if focus %} autofocus{% endif %}>Edit label</a></td>
-  {% else %}
-  <td></td><td></td><td></td>
-  {% endif %}
+         hx-target="closest tr" hx-swap="outerHTML"{% if focus %} autofocus{% endif %}>{{ "Edit label" if label else "Add label" }}</a></td>
 </tr>

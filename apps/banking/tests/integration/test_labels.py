@@ -387,12 +387,70 @@ def test_account_page_shows_labels(client, session, add_operation, groceries):
     add_label(session, labelled, groceries, ["Holiday", "Lisbon"])
     unlabelled = add_operation(date(2026, 11, 1), OTHER)
 
-    page = client.get(f"/accounts/{labelled.account_id}").text
+    page = re.sub(r"\s+", " ", client.get(f"/accounts/{labelled.account_id}").text)
 
     assert "<td>Test groceries</td>" in page
     assert "<td>Holiday, Lisbon</td>" in page
-    assert f'href="/labels/{labelled.id}/edit"' in page
-    assert f'href="/labels/{unlabelled.id}/edit"' not in page
+    assert re.search(rf'href="/labels/{labelled.id}/edit"[^>]*>Edit label<', page)
+    assert re.search(rf'href="/labels/{unlabelled.id}/edit"[^>]*>Add label<', page)
+
+
+def test_unlabelled_operation_is_labelled_in_place(
+    client, session, add_operation, groceries
+):
+    current = add_operation(date(2026, 11, 2))
+
+    form = client.get(f"/labels/{current.id}/edit", headers=HTMX)
+    response = client.post(
+        f"/labels/{current.id}",
+        data={"category_id": str(groceries.id), "tag_1": "Weekly"},
+        headers=HTMX,
+    )
+
+    assert form.status_code == 200
+    assert form.text.lstrip().startswith(f'<tr id="operation-{current.id}">')
+    assert " selected>" not in form.text
+    assert response.status_code == 200
+    assert "<td>Test groceries</td>" in response.text
+    assert "autofocus>Edit label</a>" in response.text
+    label = stored(session, current)
+    assert (label.tags, label.source) == (["Weekly"], LabelSource.MANUAL)
+
+
+def test_adding_a_label_suggests_last_time_and_accepting_it_counts(
+    client, session, add_operation, leisure
+):
+    add_label(session, add_operation(date(2026, 10, 28)), leisure, ["Holiday"])
+    current = add_operation(date(2026, 11, 2))
+
+    page = client.get(f"/labels/{current.id}/edit").text
+    response = client.post(
+        f"/labels/{current.id}",
+        data={"category_id": str(leisure.id), "tag_1": "Holiday"},
+    )
+
+    assert "<h1>Add label</h1>" in page
+    assert "Suggested from the operation of 2026-10-28." in page
+    assert f'<option value="{leisure.id}" selected>' in page
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        f"/accounts/{current.account_id}#operation-{current.id}"
+    )
+    assert stored(session, current).source == LabelSource.SUGGESTION
+
+
+def test_invalid_new_label_is_rejected_and_nothing_written(
+    client, session, add_operation
+):
+    current = add_operation(date(2026, 11, 2))
+
+    response = client.post(
+        f"/labels/{current.id}", data={"category_id": str(MAX_ID)}, headers=HTMX
+    )
+
+    assert response.status_code == 422
+    assert "This category no longer exists." in response.text
+    assert stored(session, current) is None
 
 
 def test_user_text_is_never_rendered_as_markup(client, session, add_operation):
@@ -482,7 +540,7 @@ def test_invalid_edit_is_rejected_and_nothing_written(
         ("get", f"/labels/{MAX_ID}"),
     ],
 )
-def test_unknown_label_is_not_found(client, groceries, method, path):
+def test_unknown_operation_is_not_found(client, groceries, method, path):
     data = {"data": {"category_id": str(groceries.id)}} if method == "post" else {}
 
     assert getattr(client, method)(path, **data).status_code == 404
@@ -554,6 +612,15 @@ def test_cancel_returns_the_row_or_goes_back_to_the_account(
     assert page.headers["location"] == (
         f"/accounts/{current.account_id}#operation-{current.id}"
     )
+
+
+def test_cancel_on_an_unlabelled_operation_returns_its_row(client, add_operation):
+    current = add_operation(date(2026, 11, 2))
+
+    row = client.get(f"/labels/{current.id}", headers=HTMX)
+
+    assert row.status_code == 200
+    assert "Add label</a>" in row.text
 
 
 def test_merging_categories_keeps_the_labels(

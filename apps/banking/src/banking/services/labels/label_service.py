@@ -18,6 +18,7 @@ from banking.domains.label import (
     LabelSource,
     Queue,
     QueueFilter,
+    Suggestion,
 )
 from banking.domains.operation import Operation
 from banking.services.constraints import invalid_on
@@ -86,6 +87,19 @@ class LabelService:
         if (label := self.labels.get(operation_id)) is None:
             raise NotFoundError
         return label
+
+    def find(self, operation_id: int) -> Label | None:
+        """The label of this operation; None if it has none yet."""
+        return self.labels.get(operation_id)
+
+    def suggestion_for(self, operation_id: int) -> Suggestion | None:
+        """Last time's label for this operation, if a past one matches.
+
+        Raises:
+            NotFoundError: no such operation.
+        """
+        operation = self._operation(operation_id)
+        return suggest(self.labels.list_history(), operation.description)
 
     def list_for_account(self, account_id: int) -> Mapping[int, Label]:
         """An account's labels, by operation id."""
@@ -160,8 +174,7 @@ class LabelService:
         return operation
 
     def _source(self, operation: Operation, fields: LabelFields) -> LabelSource:
-        suggestion = suggest(self.labels.list_history(), operation.description)
-        return source_of(fields, suggestion)
+        return source_of(fields, self.suggestion_for(operation.id))
 
     def _unlabelled(self, queue_filter: QueueFilter) -> Sequence[Operation]:
         if (month := queue_filter.month) is None:
