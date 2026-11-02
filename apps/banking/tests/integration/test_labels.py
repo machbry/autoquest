@@ -123,7 +123,11 @@ def shown_operation_id(page):
     return int(re.search(r'name="operation_id" value="(\d+)"', page)[1])
 
 
-def test_queue_shows_the_remaining_count_and_the_oldest_first(client, add_operation):
+# The queue shows its form only once a category exists: tests that read the form ask
+# for one (`groceries`), as CI's database is empty.
+def test_queue_shows_the_remaining_count_and_the_oldest_first(
+    client, add_operation, groceries
+):
     add_operation(date(2026, 10, 3))
     oldest = add_operation(date(2026, 10, 1), OTHER)
     add_operation(date(2026, 10, 2))
@@ -265,7 +269,9 @@ def test_month_filter_narrows_the_queue_and_is_kept_after_saving(
     assert "1 to label" in client.get(response.headers["location"]).text
 
 
-def test_account_filter_narrows_the_queue(client, session, bank, add_operation):
+def test_account_filter_narrows_the_queue(
+    client, session, bank, add_operation, groceries
+):
     other_account = AccountModel(
         name="Other label account",
         bank=bank,
