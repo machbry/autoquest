@@ -11,10 +11,11 @@
 </th>
 {% endmacro %}
 
-{# One filter's choices, as checkboxes. #}
-{% macro choices(legend, name, items, chosen) %}
+{# One filter's choices, as checkboxes; `none_label` adds a choice for "no value". #}
+{% macro choices(legend, name, items, chosen, none_label=None) %}
 <fieldset>
   <legend>{{ legend }}</legend>
+  {% if none_label %}<label><input type="checkbox" name="{{ name }}" value="none"{% if "none" in chosen %} checked{% endif %}> {{ none_label }}</label>{% endif %}
   {% for item in items %}<label><input type="checkbox" name="{{ name }}" value="{{ item.id }}"{% if item.id in chosen %} checked{% endif %}> {{ item.name }}</label>{% endfor %}
   {{ error(name) }}
 </fieldset>
@@ -26,14 +27,7 @@
 <form class="filters" method="get" action="/operations">
   {{ choices("Banks", "bank", banks, query.bank) }}
   {{ choices("Accounts", "account", accounts, query.account) }}
-  {{ choices("Categories", "category", categories, query.category) }}
-  <fieldset>
-    <legend>Labelled</legend>
-    {% for value, text in [("", "All"), ("yes", "Labelled"), ("no", "Unlabelled")] %}
-    <label><input type="radio" name="labelled" value="{{ value }}"{% if (query.labelled or "") == value %} checked{% endif %}> {{ text }}</label>
-    {% endfor %}
-    {{ error("labelled") }}
-  </fieldset>
+  {{ choices("Categories", "category", categories, query.category, none_label="None (unlabelled)") }}
   <fieldset>
     <legend>Period</legend>
     <label>From <input type="date" name="from" value="{{ query.from_ or '' }}"></label>
@@ -47,13 +41,10 @@
 
 {% if query.notice == "set" %}
 <p class="notice">{{ query.count }} operation{{ "" if query.count == 1 else "s" }} labelled.</p>
-{% elif query.notice == "accepted" %}
-<p class="notice">{{ query.count }} suggestion{{ "" if query.count == 1 else "s" }} accepted.
-{%- if query.skipped %} {{ query.skipped }} had no suggestion to accept.{% endif %}</p>
 {% elif query.notice == "removed" %}
 <p class="notice">{{ query.count }} operation{{ "" if query.count == 1 else "s" }} set back to unlabelled.</p>
 {% endif %}
-{% for field in ("sort", "order", "similar_to", "notice", "count", "skipped", "only") if errors[field] %}
+{% for field in ("sort", "order", "similar_to", "notice", "count") if errors[field] %}
 <p class="error">{{ errors[field] }}</p>
 {% endfor %}
 
@@ -68,10 +59,7 @@
     <button type="submit">Set category</button>
     {{ error("new_category") }}
   </p>
-  <p>
-    <button type="submit" formaction="/labels/accept">Accept suggestions</button>
-    <button type="submit" formaction="/labels/delete">Remove category</button>
-  </p>
+  <p><button type="submit" formaction="/labels/delete">Remove category</button></p>
   <p>
     <strong>{{ ticked | length }} selected</strong>
     <button type="submit" formmethod="get" formaction="/operations" name="select" value="all">Select all shown</button>
@@ -87,7 +75,6 @@
         {{ sort_header("description", "Description") }}
         {{ sort_header("amount", "Amount", numeric=True) }}
         {{ sort_header("category", "Category") }}
-        <th>Suggestion</th>
         <th><span class="visually-hidden">Similar</span></th>
       </tr>
     </thead>
@@ -101,15 +88,13 @@
         <td>{{ operation.description }}</td>
         <td class="num">{{ operation.amount }}</td>
         <td>{{ row.label.category.name if row.label }}</td>
-        <td>{% if row.suggestion %}{{ category_names[row.suggestion.category_id] }}
-          <button type="submit" formaction="/labels/accept" name="only" value="{{ operation.id }}" aria-label="Accept {{ category_names[row.suggestion.category_id] }} for {{ operation.description }}">Accept</button>{% endif %}</td>
         <td><button type="submit" formmethod="get" formaction="/operations" name="similar_to" value="{{ operation.id }}" aria-label="Select operations similar to {{ operation.description }}">Similar</button></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </form>
-{% elif query.labelled == "no" %}
+{% elif query.category == ["none"] %}
 <p>Nothing to label.</p>
 {% else %}
 <p>No operation matches these filters.</p>

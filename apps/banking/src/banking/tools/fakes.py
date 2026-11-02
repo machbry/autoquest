@@ -12,7 +12,7 @@ from faker import Faker
 from banking.domains.operation import OperationFields
 
 # A small pool of payees, so descriptions recur as in a real account: the seed labels
-# them, and the operations table then suggests last time's label.
+# them, and "select similar" in the operations table finds the next ones.
 PAYEES = (
     ("ACHAT CB", "SUPERMARCHE DU CENTRE"),
     ("ACHAT CB", "BOULANGERIE DU PORT"),

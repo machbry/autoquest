@@ -4,7 +4,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date
 from typing import Any
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, func, or_, select
 
 from banking.databases.models import (
     AccountModel,
@@ -40,11 +40,11 @@ def _criteria(operation_filter: OperationFilter) -> list[ColumnElement[bool]]:
         criteria.append(AccountModel.bank_id.in_(operation_filter.bank_ids))
     if operation_filter.account_ids:
         criteria.append(OperationModel.account_id.in_(operation_filter.account_ids))
-    if operation_filter.category_ids:
-        criteria.append(LabelModel.category_id.in_(operation_filter.category_ids))
-    if operation_filter.labelled is not None:
-        labelled = LabelModel.operation_id.is_not(None)
-        criteria.append(labelled if operation_filter.labelled else ~labelled)
+    if operation_filter.category_ids or operation_filter.uncategorized:
+        categories = [LabelModel.category_id.in_(operation_filter.category_ids)]
+        if operation_filter.uncategorized:
+            categories.append(LabelModel.operation_id.is_(None))
+        criteria.append(or_(*categories))
     if operation_filter.first is not None:
         criteria.append(OperationModel.operation_date >= operation_filter.first)
     if operation_filter.last is not None:
@@ -107,7 +107,6 @@ class OperationRepository(Repository[OperationModel, Operation]):
                 else Label(
                     operation_id=label.operation_id,
                     category=Category(id=category.id, name=category.name),
-                    source=label.source,
                 ),
             )
             for operation, account_name, label, category in rows

@@ -61,8 +61,8 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
         assert "File dated 2 days ago" in page
         assert page.count("CB E2E SHOP") == 2
 
-        # Label one copy by hand in the operations table, then accept last time's
-        # category for the other.
+        # In the operations table, select the copies of the shop operation with
+        # "Similar", then give them the category at once.
         assert client.post("/categories", data={"name": category}).status_code == 303
         category_id = re.search(
             rf'<td>{category}</td>.*?href="/categories/(\d+)/edit"',
@@ -70,27 +70,24 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
             re.DOTALL,
         )[1]
         account_id = account_url.rsplit("/", 1)[1]
-        filters = {"account": account_id, "labelled": "no"}
+        filters = {"account": account_id, "category": "none"}
         page = client.get("/operations", params=filters).text
-        first, second = operation_ids(page, "CB E2E SHOP")
         assert len(operation_ids(page)) == 3
-        assert 'name="only"' not in page
+        shop = operation_ids(page, "CB E2E SHOP")
+        page = client.get("/operations", params=filters | {"similar_to": shop[0]}).text
+        assert "2 selected" in page
+        assert operation_ids(page)[:2] == shop
         response = client.post(
-            "/labels", data=filters | {"id": first, "category_id": category_id}
+            "/labels", data=filters | {"id": shop, "category_id": category_id}
         )
         assert response.status_code == 303
         page = client.get(response.headers["location"]).text
-        assert "1 operation labelled." in page
-        assert operation_ids(page, "CB E2E SHOP") == [second]
-        response = client.post("/labels/accept", data=filters | {"only": second})
-        assert response.status_code == 303
-        page = client.get(response.headers["location"]).text
-        assert "1 suggestion accepted." in page
+        assert "2 operations labelled." in page
         assert len(operation_ids(page)) == 1
         labelled = client.get(
             "/operations", params={"account": account_id, "category": category_id}
         ).text
-        assert len(operation_ids(labelled)) == 2
+        assert operation_ids(labelled) == shop
 
         # Cleaning up is part of the journey: the account (and its labels), then the
         # now unused category and bank.

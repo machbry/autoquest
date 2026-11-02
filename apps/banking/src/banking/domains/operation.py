@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 
-from banking.domains.label import Label, Suggestion
+from banking.domains.label import Label
 
 # Operations one bulk action (or selection) takes at most.
 MAX_SELECTION = 500
@@ -37,13 +37,14 @@ class Operation:
 class OperationFilter:
     """Narrows the operations table; an empty tuple or None filters nothing.
 
-    The criteria combine (AND); the ids of one criterion are alternatives (OR).
+    The criteria combine (AND); the choices of one criterion are alternatives (OR).
+    `uncategorized` adds the operations without a category to `category_ids`.
     """
 
     bank_ids: tuple[int, ...] = ()
     account_ids: tuple[int, ...] = ()
     category_ids: tuple[int, ...] = ()
-    labelled: bool | None = None
+    uncategorized: bool = False
     first: date | None = None
     last: date | None = None
 
@@ -68,9 +69,8 @@ class OperationSort:
 
 @dataclass(frozen=True)
 class OperationRow:
-    """A row of the operations table; only unlabelled rows get a suggestion."""
+    """A row of the operations table."""
 
     operation: Operation
     account_name: str
     label: Label | None
-    suggestion: Suggestion | None = None

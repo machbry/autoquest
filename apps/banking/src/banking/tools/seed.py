@@ -119,15 +119,14 @@ def _seed_categories(session: Session) -> int:
 def _seed_labels(session: Session, account: Account) -> int:
     """Label the first export's operations, leaving the later ones unlabelled.
 
-    Oldest first: the first operation of each payee is labelled by hand, the next
-    ones accept the suggestion.
+    Each operation gets its payee's category.
     """
     label_service = LabelService(session)
     categories = {
         category.name: category.id for category in CategoryService(session).list()
     }
     labelled = label_service.list_for_account(account.id)
-    operations = reversed(OperationService(session).list_for_account(account.id))
+    operations = OperationService(session).list_for_account(account.id)
     added = 0
     for operation in operations:
         if operation.operation_date > EXPORT_DATES[0] or operation.id in labelled:

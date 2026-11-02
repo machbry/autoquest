@@ -6,7 +6,6 @@
   <td colspan="2">
     <form method="post" action="/labels/{{ operation.id }}" hx-post="/labels/{{ operation.id }}"
           hx-target="closest tr" hx-swap="outerHTML">
-      {% if suggestion %}<p class="muted">Suggested from the operation of {{ suggestion.from_date }}.</p>{% endif %}
       {{ label_fields(categories, autofocus_category=True) }}
       <button type="submit">Save</button>
       <a href="/labels/{{ operation.id }}" hx-get="/labels/{{ operation.id }}"

@@ -14,7 +14,6 @@ from banking.databases.models import (
     CategoryModel,
     OperationModel,
 )
-from banking.domains.label import LabelSource
 
 
 def row_ids(page):
@@ -40,25 +39,25 @@ def action(account, operations, **fields):
     return {"account": str(account.id), "id": [str(o.id) for o in operations]} | fields
 
 
-def test_unlabelled_filter_shows_them_and_stays_after_an_action(
+def test_none_category_shows_the_unlabelled_and_stays_after_an_action(
     client, account, add_operation, add_label, groceries
 ):
     unlabelled = [add_operation(date(2026, 10, day), "other") for day in (1, 2, 3)]
     for day in (4, 5):
         add_label(add_operation(date(2026, 10, day), "other"), groceries)
 
-    page = table(client, account, labelled="no").text
+    page = table(client, account, category="none").text
     response = client.post(
         "/labels",
         data=action(
-            account, unlabelled[:1], labelled="no", category_id=str(groceries.id)
+            account, unlabelled[:1], category="none", category_id=str(groceries.id)
         ),
     )
 
     assert sorted(row_ids(page)) == ids(*unlabelled)
     assert response.status_code == 303
     location = response.headers["location"]
-    assert location.startswith(f"/operations?account={account.id}&labelled=no&")
+    assert location.startswith(f"/operations?account={account.id}&category=none&")
     assert row_ids(client.get(location).text) == ids(unlabelled[2], unlabelled[1])
 
 
@@ -80,6 +79,20 @@ def test_bank_and_category_filters_combine(
     ).text
 
     assert row_ids(page) == [kept.id]
+
+
+def test_none_and_a_category_combine(
+    client, account, add_operation, add_label, groceries, leisure
+):
+    unlabelled = add_operation(date(2026, 10, 1))
+    in_groceries = add_operation(date(2026, 10, 2))
+    add_label(in_groceries, groceries)
+    add_label(add_operation(date(2026, 10, 3)), leisure)
+
+    page = table(client, account, category=["none", groceries.id]).text
+
+    assert row_ids(page) == ids(in_groceries, unlabelled)
+    assert re.search(r'value="none" checked', page)
 
 
 def test_sorting_by_amount_follows_the_order(client, account, add_operation):
@@ -128,11 +141,19 @@ def test_select_all_ticks_every_row_shown(client, account, add_operation):
     assert "2 selected" in page
 
 
-def test_setting_a_category_replaces_labels_by_hand(
+def test_ticked_rows_come_first(client, account, add_operation):
+    older, newer = add_operation(date(2026, 10, 1)), add_operation(date(2026, 10, 2))
+
+    page = table(client, account, id=older.id).text
+
+    assert row_ids(page) == ids(older, newer)
+
+
+def test_setting_a_category_replaces_existing_labels(
     client, account, add_operation, add_label, stored, groceries, leisure
 ):
     operations = [add_operation(date(2026, 10, day), "other") for day in range(1, 6)]
-    add_label(operations[0], leisure, LabelSource.SUGGESTION)
+    add_label(operations[0], leisure)
     add_label(operations[1], leisure)
 
     response = client.post(
@@ -141,76 +162,8 @@ def test_setting_a_category_replaces_labels_by_hand(
 
     assert response.status_code == 303
     assert "notice=set&count=5" in response.headers["location"]
-    labels = [stored(operation) for operation in operations]
-    assert {(label.category_id, label.source) for label in labels} == {
-        (groceries.id, LabelSource.MANUAL)
-    }
+    assert {stored(operation).category_id for operation in operations} == {groceries.id}
     assert "5 operations labelled." in client.get(response.headers["location"]).text
-
-
-def test_setting_the_same_category_keeps_the_label(
-    client, account, add_operation, add_label, stored, leisure
-):
-    operation = add_operation(date(2026, 10, 1))
-    add_label(operation, leisure, LabelSource.SUGGESTION)
-
-    client.post(
-        "/labels", data=action(account, [operation], category_id=str(leisure.id))
-    )
-
-    assert stored(operation).source == LabelSource.SUGGESTION
-
-
-def test_accepting_suggestions_labels_those_that_have_one(
-    client, account, add_operation, add_label, stored, leisure
-):
-    add_label(add_operation(date(2026, 9, 28)), leisure)
-    with_suggestion = [add_operation(date(2026, 10, day)) for day in (1, 2)]
-    without = add_operation(date(2026, 10, 3), "novel")
-
-    page = table(client, account, labelled="no").text
-    response = client.post(
-        "/labels/accept", data=action(account, [*with_suggestion, without])
-    )
-
-    for operation in with_suggestion:
-        assert f'name="only" value="{operation.id}"' in page
-    assert f'name="only" value="{without.id}"' not in page
-    assert response.status_code == 303
-    for operation in with_suggestion:
-        label = stored(operation)
-        assert (label.category_id, label.source) == (leisure.id, LabelSource.SUGGESTION)
-    assert stored(without) is None
-    page = client.get(response.headers["location"]).text
-    assert "2 suggestions accepted. 1 had no suggestion to accept." in page
-
-
-def test_accepting_never_changes_an_existing_label(
-    client, account, add_operation, add_label, stored, groceries, leisure
-):
-    add_label(add_operation(date(2026, 9, 28)), leisure)
-    labelled = add_operation(date(2026, 10, 1))
-    add_label(labelled, groceries)
-
-    response = client.post("/labels/accept", data=action(account, [labelled]))
-
-    assert "count=0&skipped=1" in response.headers["location"]
-    assert stored(labelled).category_id == groceries.id
-
-
-def test_accept_on_one_row_labels_only_that_row(
-    client, account, add_operation, add_label, stored, leisure
-):
-    add_label(add_operation(date(2026, 9, 28)), leisure)
-    one, ticked = add_operation(date(2026, 10, 1)), add_operation(date(2026, 10, 2))
-
-    response = client.post(
-        "/labels/accept", data=action(account, [ticked], only=str(one.id))
-    )
-
-    assert response.headers["location"].endswith(f"#operation-{one.id}")
-    assert stored(one) is not None
-    assert stored(ticked) is None
 
 
 def test_new_category_from_the_picker_labels_the_selection(
@@ -268,7 +221,7 @@ def test_removing_the_category_unlabels_the_selection(
     assert [stored(operation) for operation in operations] == [None, None]
 
 
-@pytest.mark.parametrize("path", ["/labels", "/labels/accept", "/labels/delete"])
+@pytest.mark.parametrize("path", ["/labels", "/labels/delete"])
 def test_an_action_needs_a_selection(client, account, add_operation, groceries, path):
     add_operation(date(2026, 10, 1))
 
@@ -280,7 +233,7 @@ def test_an_action_needs_a_selection(client, account, add_operation, groceries, 
     assert "Select at least one operation." in response.text
 
 
-@pytest.mark.parametrize("path", ["/labels", "/labels/accept", "/labels/delete"])
+@pytest.mark.parametrize("path", ["/labels", "/labels/delete"])
 def test_an_unknown_operation_is_not_found(
     client, account, add_operation, stored, groceries, path
 ):
@@ -306,7 +259,7 @@ def test_too_many_operations_are_refused(client, account, add_operation, groceri
 @pytest.mark.parametrize(
     "params",
     [
-        {"labelled": "maybe"},
+        {"category": "some"},
         {"sort": "balance"},
         {"order": "up"},
         {"from": "2026-10-31", "to": "2026-10-01"},
@@ -331,7 +284,7 @@ def test_period_filter_keeps_the_dates_within(client, account, add_operation):
 def test_empty_states(client, account, add_operation, add_label, groceries, leisure):
     add_label(add_operation(date(2026, 10, 1)), groceries)
 
-    assert "Nothing to label." in table(client, account, labelled="no").text
+    assert "Nothing to label." in table(client, account, category="none").text
     assert "No operation matches these filters." in (
         table(client, account, category=leisure.id).text
     )
@@ -391,7 +344,7 @@ def test_two_years_of_operations_answer_within_a_second(
 
     started = time.perf_counter()
     page = table(client, account).text
-    filtered = table(client, account, labelled="no", sort="amount").text
+    filtered = table(client, account, category="none", sort="amount").text
     elapsed = (time.perf_counter() - started) / 2
 
     assert len(row_ids(page)) == 2_500

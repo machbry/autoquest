@@ -23,6 +23,8 @@ def _as_list(value: Any) -> Any:
 
 
 Ids = Annotated[list[BoundedId], BeforeValidator(_as_list)]
+# The category filter's choice for operations without a category.
+NONE = "none"
 DEFAULT_SORT = OperationSort()
 
 
@@ -35,10 +37,9 @@ class OperationFilterForm(BaseModel):
 
     bank: Ids = Field(default=[], max_length=MAX_CHOICES)
     account: Ids = Field(default=[], max_length=MAX_CHOICES)
-    category: Ids = Field(default=[], max_length=MAX_CHOICES)
-    labelled: Annotated[Literal["yes", "no"] | None, BeforeValidator(blank_to_none)] = (
-        None
-    )
+    category: Annotated[
+        list[Literal["none"] | BoundedId], BeforeValidator(_as_list)
+    ] = Field(default=[], max_length=MAX_CHOICES + 1)
     from_: Annotated[date | None, BeforeValidator(blank_to_none)] = Field(
         default=None, alias="from"
     )
@@ -60,8 +61,8 @@ class OperationFilterForm(BaseModel):
         return OperationFilter(
             bank_ids=tuple(self.bank),
             account_ids=tuple(self.account),
-            category_ids=tuple(self.category),
-            labelled=None if self.labelled is None else self.labelled == "yes",
+            category_ids=tuple(item for item in self.category if isinstance(item, int)),
+            uncategorized=NONE in self.category,
             first=self.from_,
             last=self.to,
         )
@@ -76,7 +77,6 @@ class OperationFilterForm(BaseModel):
             "bank": self.bank,
             "account": self.account,
             "category": self.category,
-            "labelled": self.labelled,
             "from": self.from_,
             "to": self.to,
             "sort": self.sort,
@@ -100,12 +100,11 @@ class TableForm(OperationFilterForm):
     """The table page's query: filters, ticked rows, and what to select or report.
 
     `select=all` ticks every row shown, `similar_to` the rows similar to one; both
-    keep the rows already ticked. `notice` reports the last action's counts.
+    keep the rows already ticked. `notice` reports the last action's count.
     """
 
     id: Ids = Field(default=[], max_length=MAX_SELECTION)
     select: Literal["all"] | None = None
     similar_to: OptionalId = None
-    notice: Literal["set", "accepted", "removed"] | None = None
-    count: int | None = Field(default=None, ge=0, le=MAX_SELECTION)
-    skipped: int | None = Field(default=None, ge=0, le=MAX_SELECTION)
+    notice: Literal["set", "removed"] | None = None
+    count: int = Field(default=0, ge=0, le=MAX_SELECTION)
