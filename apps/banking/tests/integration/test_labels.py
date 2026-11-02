@@ -6,7 +6,6 @@ from datetime import date
 import pytest
 
 from banking.api.schemas.common import MAX_ID
-from banking.domains.label import LabelSource
 
 HTMX = {"HX-Request": "true"}
 
@@ -41,11 +40,10 @@ def test_unlabelled_operation_is_labelled_in_place(
     assert response.status_code == 200
     assert "<td>Test groceries</td>" in response.text
     assert "autofocus>Edit label</a>" in response.text
-    label = stored(current)
-    assert label.source == LabelSource.MANUAL
+    assert stored(current).category_id == groceries.id
 
 
-def test_adding_a_label_suggests_last_time_and_accepting_it_counts(
+def test_add_label_page_suggests_nothing(
     client, add_operation, leisure, add_label, stored
 ):
     add_label(add_operation(date(2026, 10, 28)), leisure)
@@ -58,13 +56,12 @@ def test_adding_a_label_suggests_last_time_and_accepting_it_counts(
     )
 
     assert "<h1>Add label</h1>" in page
-    assert "Suggested from the operation of 2026-10-28." in page
-    assert f'<option value="{leisure.id}" selected>' in page
+    assert " selected>" not in page
     assert response.status_code == 303
     assert response.headers["location"] == (
         f"/accounts/{current.account_id}#operation-{current.id}"
     )
-    assert stored(current).source == LabelSource.SUGGESTION
+    assert stored(current).category_id == leisure.id
 
 
 def test_invalid_new_label_is_rejected_and_nothing_written(
@@ -99,11 +96,11 @@ def test_user_text_is_never_rendered_as_markup(
         assert "&lt;i&gt;Food&lt;/i&gt;" in page
 
 
-def test_editing_a_label_makes_it_manual(
+def test_editing_a_label_changes_its_category(
     client, add_operation, groceries, leisure, add_label, stored
 ):
     current = add_operation(date(2026, 11, 2))
-    add_label(current, leisure, LabelSource.SUGGESTION)
+    add_label(current, leisure)
 
     response = client.post(
         f"/labels/{current.id}",
@@ -114,19 +111,7 @@ def test_editing_a_label_makes_it_manual(
     assert response.headers["location"] == (
         f"/accounts/{current.account_id}#operation-{current.id}"
     )
-    label = stored(current)
-    assert (label.category_id, label.source) == (groceries.id, LabelSource.MANUAL)
-
-
-def test_saving_the_same_category_keeps_the_source(
-    client, add_operation, leisure, add_label, stored
-):
-    current = add_operation(date(2026, 11, 2))
-    add_label(current, leisure, LabelSource.SUGGESTION)
-
-    client.post(f"/labels/{current.id}", data={"category_id": str(leisure.id)})
-
-    assert stored(current).source == LabelSource.SUGGESTION
+    assert stored(current).category_id == groceries.id
 
 
 def test_edit_page_is_prefilled(client, add_operation, leisure, add_label):

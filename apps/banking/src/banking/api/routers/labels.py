@@ -33,17 +33,11 @@ from banking.services.categories.category_service import CategoryService
 router = APIRouter(prefix="/labels")
 
 
-def _back_to_table(
-    form: SelectionForm, notice: str, count: int, skipped: int | None = None
-) -> RedirectResponse:
+def _back_to_table(form: SelectionForm, notice: str, count: int) -> RedirectResponse:
     """Back to the same view of the table, saying what the action did."""
-    extra: list[tuple[str, str | int]] = [("notice", notice), ("count", count)]
-    if skipped is not None:
-        extra.append(("skipped", skipped))
-    url = form.url(*extra)
-    if form.only is not None:
-        url += f"#operation-{form.only}"
-    return RedirectResponse(url, status_code=303)
+    return RedirectResponse(
+        form.url(("notice", notice), ("count", count)), status_code=303
+    )
 
 
 def _render_table(
@@ -105,24 +99,12 @@ def create_label(
     form, errors = validate(CategorizeForm, data)
     if form is not None:
         try:
-            count = labels.set_category(form.ids(), form.category_id, form.new_category)
+            count = labels.set_category(form.id, form.category_id, form.new_category)
         except InvalidError as exc:
             errors = {exc.field: exc.message}
         else:
             return _back_to_table(form, "set", count)
     return _render_table(request, page, data, errors)
-
-
-@router.post("/accept")
-def accept_labels(
-    request: Request, labels: LabelServiceDep, page: OperationsPageDep, data: FormDep
-) -> Response:
-    """Accept last time's category for the selected operations (or one row's)."""
-    form, errors = validate(SelectionForm, data)
-    if form is None:
-        return _render_table(request, page, data, errors)
-    result = labels.accept_suggestions(form.ids())
-    return _back_to_table(form, "accepted", result.accepted, result.skipped)
 
 
 @router.post("/delete")
@@ -133,7 +115,7 @@ def delete_labels(
     form, errors = validate(SelectionForm, data)
     if form is None:
         return _render_table(request, page, data, errors)
-    return _back_to_table(form, "removed", labels.delete_many(form.ids()))
+    return _back_to_table(form, "removed", labels.delete_many(form.id))
 
 
 @router.get("/{operation_id}/edit", response_class=HTMLResponse)
@@ -145,23 +127,12 @@ def edit_label(
     htmx: HtmxDep,
     operation_id: Id,
 ) -> HTMLResponse:
-    """Form to label an operation: its label's values, else last time's suggested."""
+    """Form to label an operation, prefilled with its label's category."""
     operation = operations.get(operation_id)
-    suggestion = None
-    if (label := labels.find(operation_id)) is not None:
-        values = {"category_id": label.category.id}
-    elif (suggestion := labels.suggestion_for(operation_id)) is not None:
-        values = {"category_id": suggestion.category_id}
-    else:
-        values = {}
+    label = labels.find(operation_id)
+    values = {} if label is None else {"category_id": label.category.id}
     return _render_form(
-        request,
-        categories,
-        operation,
-        htmx,
-        label=label,
-        suggestion=suggestion,
-        values=values,
+        request, categories, operation, htmx, label=label, values=values
     )
 
 

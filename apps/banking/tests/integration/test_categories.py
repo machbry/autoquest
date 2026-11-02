@@ -14,7 +14,6 @@ from banking.databases.models import (
     OperationModel,
 )
 from banking.domains.account import AccountType
-from banking.domains.label import LabelSource
 
 MAX_ID = 2**31 - 1  # largest INTEGER
 
@@ -63,7 +62,7 @@ def label(session, bank):
     session.flush()
     created = 0
 
-    def make(category, source=LabelSource.MANUAL):
+    def make(category):
         nonlocal created
         created += 1
         operation = OperationModel(
@@ -79,7 +78,6 @@ def label(session, bank):
         label = LabelModel(
             operation_id=operation.id,
             category_id=category.id,
-            source=source,
         )
         session.add(label)
         session.commit()
@@ -185,7 +183,6 @@ def test_merge_moves_every_label_and_removes_the_category(
     client, session, category, other, label
 ):
     labels = [label(category), label(category), label(other)]
-    sources = [item.source for item in labels]
     before = count_categories(session)
 
     response = client.post(
@@ -194,9 +191,6 @@ def test_merge_moves_every_label_and_removes_the_category(
 
     assert response.status_code == 303
     assert category_ids(session, labels) == [other.id] * 3
-    assert [session.get(LabelModel, item.operation_id).source for item in labels] == (
-        sources
-    )
     assert count_categories(session) == before - 1
     assert session.get(CategoryModel, category.id) is None
 
@@ -259,16 +253,6 @@ def test_database_refuses_to_delete_a_category_in_use(session, category, label):
     with pytest.raises(IntegrityError):
         session.execute(
             text("DELETE FROM banking.categories WHERE id = :id"), {"id": category.id}
-        )
-
-
-def test_database_refuses_an_unknown_label_source(session, category, label):
-    labelled = label(category)
-
-    with pytest.raises(IntegrityError):
-        session.execute(
-            text("UPDATE banking.labels SET source = 'guess' WHERE operation_id = :id"),
-            {"id": labelled.operation_id},
         )
 
 

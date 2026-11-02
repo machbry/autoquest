@@ -13,14 +13,12 @@ from banking.databases.models import (
     OperationModel,
 )
 from banking.domains.account import AccountType
-from banking.domains.label import LabelSource
 
-# Descriptions by name, with payees no seed operation uses: the seed's labels must
-# not suggest anything here. "novel" is never labelled by any test.
+# Descriptions by name, with payees no seed operation uses, so "select similar" only
+# finds the test's own operations.
 DESCRIPTIONS = {
     "shop": "ACHAT CB LABELTEST SHOP {:%d.%m.%y} CARTE NUMERO 195",
     "other": "PRLV SEPA LABELTEST OTHER {:%d%m}",
-    "novel": "VIR LABELTEST NOBODY BEFORE {:%d%m}",
 }
 
 
@@ -108,10 +106,8 @@ def leisure(add_category):
 def add_label(session):
     """Label an operation; return the label."""
 
-    def make(operation, category, source=LabelSource.MANUAL):
-        label = LabelModel(
-            operation_id=operation.id, category_id=category.id, source=source
-        )
+    def make(operation, category):
+        label = LabelModel(operation_id=operation.id, category_id=category.id)
         session.add(label)
         session.commit()
         return label

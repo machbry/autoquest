@@ -56,7 +56,9 @@ def test_seed_labels_the_first_export_only(session):
 
     rows = session.execute(
         select(
-            OperationModel.operation_date, OperationModel.description, LabelModel.source
+            OperationModel.operation_date,
+            OperationModel.description,
+            LabelModel.category_id,
         )
         .join(AccountModel, AccountModel.id == OperationModel.account_id)
         .outerjoin(LabelModel, LabelModel.operation_id == OperationModel.id)
@@ -66,5 +68,5 @@ def test_seed_labels_the_first_export_only(session):
     # A database seeded before the payee pool existed keeps its operations unlabelled.
     seeded = [row for row in rows if any(payee in row[1] for payee in PAYEE_CATEGORIES)]
     first_export = [row for row in seeded if row[0] <= EXPORT_DATES[0]]
-    assert all(source is not None for *_, source in first_export)
-    assert all(source is None for day, _, source in seeded if day > EXPORT_DATES[0])
+    assert all(category is not None for *_, category in first_export)
+    assert all(category is None for day, _, category in seeded if day > EXPORT_DATES[0])

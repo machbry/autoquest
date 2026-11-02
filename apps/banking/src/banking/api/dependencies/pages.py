@@ -122,7 +122,9 @@ class OperationsPage:
             )
         else:
             ticked.update(added)
-        categories = self.categories.list()
+        # Ticked rows first, each part in the chosen order: the selection stays in
+        # view, next to the actions.
+        rows = sorted(rows, key=lambda row: row.operation.id not in ticked)
         return render(
             request,
             "operations/list.html",
@@ -132,8 +134,7 @@ class OperationsPage:
             ticked=ticked,
             banks=self.banks.list(),
             accounts=self.accounts.list(),
-            categories=categories,
-            category_names={category.id: category.name for category in categories},
+            categories=self.categories.list(),
             **context,
         )
 

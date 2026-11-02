@@ -16,25 +16,20 @@ class LabelForm(BaseModel):
 
 
 class SelectionForm(OperationFilterForm):
-    """A bulk action's operations: the ticked ones, or `only` one row's.
+    """A bulk action's operations: the ticked ones.
 
     The table's filters come along, so the action goes back to the same view.
     """
 
-    only: OptionalId = None
     id: Ids = Field(default=[], max_length=MAX_SELECTION, validate_default=True)
 
     @field_validator("id")
     @classmethod
-    def some_selected(cls, value: list[int], info: ValidationInfo) -> list[int]:
+    def some_selected(cls, value: list[int]) -> list[int]:
         """An action needs operations to act on."""
-        if not value and info.data.get("only") is None:
+        if not value:
             raise ValueError("Select at least one operation.")
         return value
-
-    def ids(self) -> list[int]:
-        """The operations to act on: `only` (one row's button), else the ticked."""
-        return [self.only] if self.only is not None else self.id
 
 
 def _stripped_or_none(value: object) -> object:
