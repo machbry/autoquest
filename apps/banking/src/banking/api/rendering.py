@@ -1,7 +1,10 @@
 """HTML pages: templates, and the form validation errors they display."""
 
+from calendar import monthrange
+from datetime import date
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from fastapi import Request
 from fastapi.responses import HTMLResponse
@@ -17,6 +20,18 @@ templates.env.globals["type_labels"] = {
     AccountType.PEA: "PEA",
     AccountType.LIFE_INSURANCE: "Life insurance",
 }
+
+
+def operations_url(account_id: int, month: date, unlabelled: bool = False) -> str:
+    """The admin's operations table, filtered on an account's month."""
+    last = month.replace(day=monthrange(month.year, month.month)[1])
+    rules = [f"account__in={account_id}", f"operation_date__between={month}..{last}"]
+    if unlabelled:
+        rules.append("category__is_null")
+    return "/admin/operations/list?" + urlencode({"filter": " AND ".join(rules)})
+
+
+templates.env.globals["operations_url"] = operations_url
 
 # Field name → message, shown next to the field.
 Errors = dict[str, str]

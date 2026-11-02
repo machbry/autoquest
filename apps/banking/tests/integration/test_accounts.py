@@ -1,3 +1,4 @@
+import html
 import re
 from datetime import date
 
@@ -274,31 +275,43 @@ def test_database_enforces_account_invariants(session, bank, overrides):
 
 
 def test_account_page_recaps_operations_by_month(
-    client, account, add_operation, add_label, groceries
+    client, account, add_account, add_operation, groceries
 ):
-    october = [add_operation(date(2026, 10, day)) for day in (1, 31)]
-    add_label(october[0], groceries)
-    add_operation(date(2026, 11, 2), "other")
+    october = [
+        add_operation(date(2026, 10, 1), category=groceries),
+        add_operation(date(2026, 10, 31)),
+    ]
+    november = add_operation(date(2026, 11, 2))
+    add_operation(date(2026, 10, 15), target=add_account("Other account"))
 
     page = re.sub(r"\s+", " ", client.get(f"/accounts/{account.id}").text)
 
     rows = re.findall(
         r"<tr> <td><a href=\"([^\"]+)\">([\d-]+)</a></td>(.*?)</tr>", page
     )
-    assert [(href, month) for href, month, _ in rows] == [
-        (f"/operations?account={account.id}&amp;month=2026-11", "2026-11"),
-        (f"/operations?account={account.id}&amp;month=2026-10", "2026-10"),
-    ]
+    assert [month for _, month, _ in rows] == ["2026-11", "2026-10"]
     counts = [
         re.findall(r'class="num">(?:<a [^>]*>)?(\d+)', cells) for *_, cells in rows
     ]
     assert counts == [["1", "0", "1"], ["2", "1", "1"]]
-    assert (
-        f'href="/operations?account={account.id}&amp;category=none&amp;month=2026-10"'
-        in page
-    )
+    # Each month links to the admin's table of its operations, all or unlabelled.
+    links = re.findall(r'href="(/admin/operations/list\?filter=[^"]+)"', page)
+    links = [html.unescape(link) for link in links]
+    assert [listed_ids(client, link) for link in links] == [
+        [november.id],
+        [november.id],
+        [october[1].id, october[0].id],
+        [october[1].id],
+    ]
     # The recap replaces the operation list.
     assert "LABELTEST" not in page
+
+
+def listed_ids(client, url):
+    """The ids of the operations an admin list page shows, in order."""
+    page = client.get(url)
+    assert page.status_code == 200
+    return [int(pk) for pk in re.findall(r'<tr data-sa-pk="(\d+)"', page.text)]
 
 
 def test_account_without_operations_says_so(client, account):

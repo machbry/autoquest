@@ -19,6 +19,13 @@ def test_app_refuses_to_start_without_db_url(monkeypatch):
         create_app()
 
 
+def test_app_refuses_a_short_secret_key(monkeypatch):
+    monkeypatch.setenv("BANKING_SECRET_KEY", "too short")
+
+    with pytest.raises(ValidationError, match="secret_key"):
+        create_app()
+
+
 def test_app_refuses_a_non_postgres_db_url(monkeypatch):
     monkeypatch.setenv("BANKING_DB_URL", "sqlite:///banking.db")
 

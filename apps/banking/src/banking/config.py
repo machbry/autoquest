@@ -2,7 +2,7 @@
 
 from functools import cache
 
-from pydantic import PostgresDsn
+from pydantic import Field, PostgresDsn, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="BANKING_")
 
     db_url: PostgresDsn
+    # Signs the admin's CSRF and flash cookies; the same on every instance.
+    secret_key: SecretStr = Field(min_length=32)
 
 
 @cache

@@ -222,7 +222,10 @@ def test_closed_account_keeps_its_operations_and_still_imports(client, account_u
 
     imported(client, account_url, export([operation(description="CB LAST ONE")]))
 
-    page = client.get("/operations", params={"account": account_id(account_url)}).text
+    page = client.get(
+        "/admin/operations/list",
+        params={"filter": f"account__in={account_id(account_url)}"},
+    ).text
     assert "CB BEFORE CLOSE" in page
     assert "CB LAST ONE" in page
 

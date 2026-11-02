@@ -5,8 +5,9 @@
 > [root CLAUDE.md](../../../CLAUDE.md), banking overrides in [CLAUDE.md](../CLAUDE.md).
 
 ## Overview
-A Postgres database is the single store for all banking data. A single FastAPI + HTMX web
-app covers every user flow, from data editing to import, labelling and analysis. dbt turns the stored data into analysis models. Scheduled and
+A Postgres database is the single store for all banking data. A single FastAPI web app
+covers every user flow: its own pages for accounts, import and analysis, and an admin
+built from the database models for data editing and labelling. dbt turns the stored data into analysis models. Scheduled and
 on-demand work runs as GitHub Actions jobs. The web app's code follows the three layers
 (api → services → databases, around shared domains) of the
 [root CLAUDE.md](../../../CLAUDE.md#app-code-structure).
@@ -19,7 +20,8 @@ mark planned components. Source: [architecture.py](architecture.py).
 ## Components
 | Component | Runs on | Features it supports |
 | --- | --- | --- |
-| **Web app** (FastAPI + HTMX) | Cloud Run | Banks (add, rename, delete); accounts (declare, edit, close, delete); statement import with summary and freshness indicator; categories (add, rename, merge); operations table (filters, sort, bulk labelling); account monthly recap; manual operations and balances; corrections; monthly analysis pages |
+| **Web app** (FastAPI pages) | Cloud Run | Accounts (declare, edit, close, delete); statement import with summary and freshness indicator; account monthly recap; manual operations and balances; corrections; monthly analysis pages |
+| **Admin** (starlette-admin, inside the web app) | Cloud Run | Banks (add, rename, delete); categories (add, rename, merge); operations table (search, filters, sort, labelling in place or in bulk) |
 | **Importers** (one module per bank/format, inside the web app) | Cloud Run | Banque Postale CSV; PDF statements; CFCAL and Fortuneo files; bank/account auto-detection |
 | **Postgres** | Neon (`prd`), Docker (`loc`) | Stores all app data, for every feature |
 | **dbt** (dbt-postgres) | Jobs, models in Postgres | Monthly analysis: spending by category, savings rate, net worth; internal transfer reporting |
@@ -57,21 +59,23 @@ at fault.
   transaction.
 - Both reference `accounts` with `ON DELETE CASCADE`.
 - **`categories`**: `name` (unique): the type of an expense or income.
-  Renaming keeps the labels (they hold the id). A category in use can't be deleted
-  (`labels.category_id`, `ON DELETE RESTRICT`); merging moves its labels to another, then
-  deletes it, in one transaction.
-- **`labels`**: at most one per operation (`operation_id` primary key, `ON DELETE
-  CASCADE`): `category_id`, and `created_at` for the labelling-time metric. No tags,
-  notes or suggestions, to stay simple.
-  "Similar" operations: two operations match when their descriptions do once every word
-  holding a digit is dropped (card date, card number, references), ignoring case and
-  spacing. Computed on each request rather than stored, so the rule can be tuned.
+  Renaming keeps the labels (operations hold the id). A category in use can't be deleted
+  (`operations.category_id`, `ON DELETE RESTRICT`); merging moves its operations to
+  another, then deletes it, in one transaction.
+- **Labels**: an operation's `category_id`, null until labelled. A column rather than a
+  table, so the admin edits it in place. No tags, notes or suggestions, to stay simple.
 
 ## Front end
-Server-rendered pages and plain forms, with no JavaScript for now: each action posts a form
-and redirects, and selecting rows in the operations table reloads the page. There is no
-front-end dependency to vendor or upgrade. htmx, the stack's default, comes back (vendored
-and pinned, served by the app) only where it clearly pays off.
+- **App pages**: server-rendered pages and plain forms, with no JavaScript: each action
+  posts a form and redirects.
+- **Admin** (`/admin`): [starlette-admin](https://jowilf.github.io/starlette-admin/),
+  mounted in the app and built from the SQLAlchemy models, so a migrated column shows up
+  there. Its JavaScript and CSS ship in the Python package, pinned by `uv.lock`; only the
+  Inter font loads from a CDN. It writes the tables directly, not through the services:
+  the database constraints hold the invariants, and it shows a broken one by its message.
+  Its CSRF protection signs cookies with `BANKING_SECRET_KEY`.
+- htmx, the stack's default, comes back (vendored and pinned) only where it clearly pays
+  off.
 
 ## Security
 TODO: defined with #14.

@@ -5,7 +5,6 @@ from banking.databases.models import (
     BankModel,
     CategoryModel,
     ImportModel,
-    LabelModel,
     OperationModel,
 )
 from banking.tools.seed import (
@@ -24,7 +23,6 @@ MODELS = (
     ImportModel,
     OperationModel,
     CategoryModel,
-    LabelModel,
 )
 
 
@@ -58,10 +56,9 @@ def test_seed_labels_the_first_export_only(session):
         select(
             OperationModel.operation_date,
             OperationModel.description,
-            LabelModel.category_id,
+            OperationModel.category_id,
         )
         .join(AccountModel, AccountModel.id == OperationModel.account_id)
-        .outerjoin(LabelModel, LabelModel.operation_id == OperationModel.id)
         .where(AccountModel.name == IMPORTED_ACCOUNT)
     ).all()
 

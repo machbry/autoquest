@@ -19,7 +19,8 @@ where stated.
 ## Overrides of the default stack
 - **No MotherDuck:** analytics run with dbt-postgres on the Neon database; the volume
   (~1,100 operations a year) doesn't justify a second store. Revisit if it grows.
-- **No NocoDB:** one FastAPI + HTMX app covers every flow, data editing included: one
-  service and one auth surface, and every write goes through the app's validation.
+- **No NocoDB:** data editing is a starlette-admin mounted in the FastAPI app and built
+  from the SQLAlchemy models, so the schema stays in code: one service and one auth
+  surface. Its writes bypass the services: invariants they need belong in the database.
 - **No Firestore.**
 - **Raw statement files are never stored:** only parsed operations and import metadata.

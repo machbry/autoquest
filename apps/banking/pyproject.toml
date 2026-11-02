@@ -10,7 +10,9 @@ dependencies = [
     "psycopg[binary]",
     "pydantic-settings",
     "python-multipart",
-    "sqlalchemy",
+    # starlette-admin imports SQLAlchemy's asyncio module, which needs greenlet.
+    "sqlalchemy[asyncio]",
+    "starlette-admin",
     "uvicorn",
 ]
 

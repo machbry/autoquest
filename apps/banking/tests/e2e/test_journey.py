@@ -28,12 +28,14 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
     export = build_export(number, today - timedelta(days=2), operations)
 
     with httpx.Client(base_url=BASE_URL) as client:
-        assert client.post("/banks", data={"name": bank}).status_code == 303
-        bank_id = re.search(
-            rf'<td>{bank}</td>.*?action="/banks/(\d+)/delete"',
-            client.get("/banks").text,
-            re.DOTALL,
-        )[1]
+        # The bank and the category are added in the admin.
+        client.get("/admin/banks/list")
+        token = client.cookies["starlette_admin_csrftoken"]
+        client.headers["X-CSRFToken"] = token
+        for view, name in (("banks", bank), ("categories", category)):
+            response = client.post(f"/admin/{view}/create", data={"name": name})
+            assert response.status_code == 303
+        bank_id = admin_id(client, "banks", bank)
 
         response = client.post(
             "/accounts",
@@ -59,52 +61,43 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
         page = client.get(response.headers["location"]).text
         assert "3 rows in the file: 3 new, 0 already known." in page
         assert "File dated 2 days ago" in page
-        # The account page recaps its months, each linking to the operations table.
-        for month in {f"{operation.operation_date:%Y-%m}" for operation in operations}:
-            assert f"month={month}" in page
 
-        # In the operations table, select the copies of the shop operation with
-        # "Similar", then give them the category at once.
-        assert client.post("/categories", data={"name": category}).status_code == 303
-        category_id = re.search(
-            rf'<td>{category}</td>.*?href="/categories/(\d+)/edit"',
-            client.get("/categories").text,
-            re.DOTALL,
-        )[1]
-        account_id = account_url.rsplit("/", 1)[1]
-        filters = {"account": account_id, "category": "none"}
-        page = client.get("/operations", params=filters).text
-        assert len(operation_ids(page)) == 3
-        shop = operation_ids(page, "CB E2E SHOP")
-        page = client.get("/operations", params=filters | {"similar_to": shop[0]}).text
-        assert "2 selected" in page
-        assert operation_ids(page)[:2] == shop
-        response = client.post(
-            "/labels", data=filters | {"id": shop, "category_id": category_id}
-        )
-        assert response.status_code == 303
-        page = client.get(response.headers["location"]).text
-        assert "2 operations labelled." in page
-        assert len(operation_ids(page)) == 1
-        labelled = client.get(
-            "/operations", params={"account": account_id, "category": category_id}
-        ).text
-        assert operation_ids(labelled) == shop
-        # One operation is left to label: the recap links to it.
-        assert "category=none&amp;month=" in client.get(account_url).text
+        # The recap links each month's unlabelled operations to the admin's table:
+        # label them all at once there.
+        links = [
+            link.replace("&amp;", "&")
+            for link in re.findall(r'href="(/admin/operations/list\?[^"]+)"', page)
+            if "category__is_null" in link
+        ]
+        assert links
+        category_id = admin_id(client, "categories", category)
+        for link in links:
+            response = client.post(
+                "/admin/_api/operations/action",
+                params={
+                    "name": "set_category",
+                    "all": "1",
+                    "_list_query": link.split("?", 1)[1],
+                },
+                data={"category_id": category_id},
+            )
+            assert response.status_code == 200
+        assert "category__is_null" not in client.get(account_url).text
 
-        # Cleaning up is part of the journey: the account (and its labels), then the
-        # now unused category and bank.
+        # Cleaning up is part of the journey: the account (and its labels) on its
+        # page, then the now unused category and bank in the admin.
         assert client.post(f"{account_url}/delete").status_code == 303
         assert account not in client.get("/accounts").text
-        assert client.post(f"/categories/{category_id}/delete").status_code == 303
-        assert client.post(f"/banks/{bank_id}/delete").status_code == 303
-        assert bank not in client.get("/banks").text
+        for view, item_id in (("categories", category_id), ("banks", bank_id)):
+            response = client.post(
+                f"/admin/_api/{view}/action", params={"name": "delete", "pks": item_id}
+            )
+            assert response.status_code == 200
+        banks = client.get("/admin/banks/list", params={"q": bank}).text
+        assert "data-sa-pk" not in banks
 
 
-def operation_ids(page: str, description: str = "") -> list[str]:
-    """The ids of the table's rows whose description starts with this text."""
-    return re.findall(
-        rf'name="id" value="(\d+)"[^>]*aria-label="Select \S+ {re.escape(description)}',
-        page,
-    )
+def admin_id(client, view, name):
+    """The id of the record with this name in an admin list."""
+    page = client.get(f"/admin/{view}/list", params={"q": name}).text
+    return re.search(rf'data-sa-pk="(\d+)"(?:(?!data-sa-pk).)*?>{name}<', page, re.S)[1]

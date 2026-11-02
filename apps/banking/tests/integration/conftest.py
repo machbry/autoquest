@@ -1,4 +1,4 @@
-"""Fixtures for the label and operations table tests: operations, categories, labels."""
+"""Fixtures for the account page and admin tests: accounts, operations, categories."""
 
 from datetime import date
 from decimal import Decimal
@@ -9,17 +9,9 @@ from banking.databases.models import (
     AccountModel,
     CategoryModel,
     ImportModel,
-    LabelModel,
     OperationModel,
 )
 from banking.domains.account import AccountType
-
-# Descriptions by name, with payees no seed operation uses, so "select similar" only
-# finds the test's own operations.
-DESCRIPTIONS = {
-    "shop": "ACHAT CB LABELTEST SHOP {:%d.%m.%y} CARTE NUMERO 195",
-    "other": "PRLV SEPA LABELTEST OTHER {:%d%m}",
-}
 
 
 @pytest.fixture
@@ -47,13 +39,10 @@ def account(add_account):
 
 @pytest.fixture
 def add_operation(session, account):
-    """Add an operation (to the account by default); return it.
-
-    The description is a name from DESCRIPTIONS or a template, formatted with the day.
-    """
+    """Add an operation (to the account by default), with a category or not."""
     imports = {}
 
-    def make(day, description="shop", target=account, amount="-9.99"):
+    def make(day, description="CB LABELTEST SHOP", target=account, category=None):
         if target.id not in imports:
             imports[target.id] = ImportModel(
                 account_id=target.id,
@@ -68,9 +57,10 @@ def add_operation(session, account):
             account_id=target.id,
             import_id=imports[target.id].id,
             operation_date=day,
-            description=DESCRIPTIONS.get(description, description).format(day),
-            amount=Decimal(amount),
+            description=description,
+            amount=Decimal("-9.99"),
             occurrence=1,
+            category_id=None if category is None else category.id,
         )
         session.add(operation)
         session.commit()
@@ -103,24 +93,11 @@ def leisure(add_category):
 
 
 @pytest.fixture
-def add_label(session):
-    """Label an operation; return the label."""
-
-    def make(operation, category):
-        label = LabelModel(operation_id=operation.id, category_id=category.id)
-        session.add(label)
-        session.commit()
-        return label
-
-    return make
-
-
-@pytest.fixture
-def stored(session):
-    """The label of an operation as stored now, or None."""
+def category_of(session):
+    """The category id an operation has now, or None."""
 
     def get(operation):
         session.expire_all()
-        return session.get(LabelModel, operation.id)
+        return session.get(OperationModel, operation.id).category_id
 
     return get

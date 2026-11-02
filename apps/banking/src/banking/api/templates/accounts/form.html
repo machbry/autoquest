@@ -15,7 +15,7 @@
       {% endfor %}
     </select>
   </label>
-  {% if not banks %}<span class="error">No bank yet: <a href="/banks">add a bank</a> first.</span>{% endif %}
+  {% if not banks %}<span class="error">No bank yet: <a href="/admin/banks/create">add a bank</a> first.</span>{% endif %}
   {{ error("bank_id") }}
   <label>Type
     <select name="type" required>

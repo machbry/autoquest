@@ -34,12 +34,11 @@
   <thead><tr><th>Month</th><th class="num">Operations</th><th class="num">Labelled</th><th class="num">Unlabelled</th></tr></thead>
   <tbody>
     {% for item in recap %}
-    {% set month = "%04d-%02d" % (item.month.year, item.month.month) %}
     <tr>
-      <td><a href="/operations?account={{ account.id }}&amp;month={{ month }}">{{ month }}</a></td>
+      <td><a href="{{ operations_url(account.id, item.month) }}">{{ "%04d-%02d" % (item.month.year, item.month.month) }}</a></td>
       <td class="num">{{ item.operations }}</td>
       <td class="num">{{ item.labelled }}</td>
-      <td class="num">{% if item.unlabelled %}<a href="/operations?account={{ account.id }}&amp;category=none&amp;month={{ month }}">{{ item.unlabelled }}</a>{% else %}0{% endif %}</td>
+      <td class="num">{% if item.unlabelled %}<a href="{{ operations_url(account.id, item.month, unlabelled=True) }}">{{ item.unlabelled }}</a>{% else %}0{% endif %}</td>
     </tr>
     {% endfor %}
   </tbody>
