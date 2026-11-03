@@ -6,9 +6,9 @@
 
 ## Overview
 A Postgres database is the single store for all banking data. A single FastAPI web app
-covers every user flow: its own pages for import and analysis, and an admin
-built from the database models for data editing and labelling. dbt turns the stored data into analysis models. Scheduled and
-on-demand work runs as GitHub Actions jobs. The web app's code follows the three layers
+covers every user flow: its own pages for import and analysis, and an admin built from
+the database models for data editing and labelling. dbt turns the stored data into
+analysis models. Scheduled and on-demand work runs as GitHub Actions jobs. The web app's code follows the three layers
 (api → services → databases, around shared domains) of the
 [root CLAUDE.md](../../../CLAUDE.md#app-code-structure).
 
@@ -74,7 +74,6 @@ at fault.
   there. Its JavaScript and CSS ship in the Python package, pinned by `uv.lock`; only the
   Inter font loads from a CDN. It writes the tables directly, not through the services:
   the database constraints hold the invariants, and it shows a broken one by its message.
-  Closing an account is the exception: it reuses the account service's rules.
   Its CSRF protection signs cookies with `BANKING_SECRET_KEY`.
 - htmx, the stack's default, comes back (vendored and pinned) only where it clearly pays
   off.

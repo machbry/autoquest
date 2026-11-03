@@ -41,8 +41,7 @@ only): `docker compose down -v`.
 
 Routes and code follow the [CRUD conventions](../../CLAUDE.md#crud-conventions), except
 the admin (`src/banking/admin`): built from the SQLAlchemy models, it writes the tables
-directly, and the database constraints hold the invariants; *Close* reuses the account
-service.
+directly, and the database constraints hold the invariants.
 New migration, generated from `databases/models` (review it before committing):
 `uv run alembic -c apps/banking/alembic.ini revision --autogenerate -m "<Summary.>"`.
 
