@@ -32,8 +32,11 @@ showcases my engineering practices. App descriptions live in `README.md` and in 
 - **File storage:** GCP Cloud Storage.
 - **Container images:** GitHub Container Registry.
 - **Secrets:** GCP Secret Manager (GitHub Actions secrets in CI).
-- **Data UI:** NocoDB, self-hosted, on top of the app's database (schema stays in code).
-- **App UI:** FastAPI + HTMX (Jinja2 templates) on Cloud Run, for flows NocoDB can't cover.
+- **Data UI:** [starlette-admin](https://jowilf.github.io/starlette-admin/), mounted in the
+  app's FastAPI service and built from its SQLAlchemy models (schema stays in code). Its
+  writes bypass the services: invariants they need are database constraints.
+- **App UI:** FastAPI + HTMX (Jinja2 templates) on Cloud Run, for flows the admin can't
+  cover.
 - **Data pipelines:** dbt for data transformations.
 - **IaC:** Terraform, with remote state in a GCS bucket.
 - **Python tooling:** uv (workspace and lockfile), pytest, ruff (lint and format).
@@ -82,6 +85,7 @@ src/<app>/
 │   ├── schemas/              # Pydantic schemas validating requests (and JSON responses)
 │   ├── dependencies/         # DB session, service injection, auth; no business logic
 │   └── templates/            # Jinja2 pages (HTML apps), one folder per resource
+├── admin/                    # starlette-admin views, one module per table
 ├── services/                 # business logic: rules, orchestration, transactions
 │   └── <resources>/<resource>_service.py
 ├── databases/
@@ -96,10 +100,15 @@ src/<app>/
   errors (not found, invalid input, conflict), which routers turn into responses.
 - Repositories turn database errors into repository errors (e.g. a broken constraint, by
   name). Services translate those into domain errors.
+- `admin/` reads the database models only (never `api/` or `services/`), and only
+  `main.py` mounts it.
 - `main.py` and `api/dependencies/` wire the layers together (session, services), so they
   may import any of them. A unit test (`tests/unit/test_layers.py`) enforces these rules.
 
 ### CRUD conventions
+Editing records goes in the admin (Data UI). These conventions apply to the app's own
+pages, for flows the admin can't cover, and to JSON APIs.
+
 One resource = one vertical slice, named after the resource (`account`, plural `accounts`):
 
 | Layer | Module | Names |
