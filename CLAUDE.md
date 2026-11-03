@@ -283,7 +283,8 @@ the root `tests/`.
 ## Rule enforcement
 A rule a program can check is a test or a CI check, run on every PR; add one when a rule
 becomes checkable. The `rules-audit` skill reviews the code against every other rule,
-monthly in CI or on demand, and opens issues for the violations.
+monthly in CI or on demand, and only reports violations: the monthly run fails when it
+finds any. Review them, then write the issues worth fixing with `/write-spec`.
 
 | Rule | Checked by |
 | --- | --- |
