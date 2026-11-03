@@ -1,7 +1,7 @@
 """The layers only depend downwards: api → services → databases, all → domains.
 
 Dev-only `tools` may import any layer; no layer imports them. The admin reads the
-models and may call the services; only `main.py` mounts it.
+models only; only `main.py` mounts it.
 """
 
 import ast
@@ -20,7 +20,7 @@ FORBIDDEN_IMPORTS = {
     "services": ("banking.api",),
     "api/routers": ("banking.databases",),
     "api/schemas": ("banking.databases", "banking.services"),
-    "admin": ("banking.api",),
+    "admin": ("banking.api", "banking.services"),
 }
 
 
@@ -63,7 +63,7 @@ def test_only_main_imports_the_admin():
     importers = {
         str(path.relative_to(PACKAGE))
         for path in PACKAGE.rglob("*.py")
-        if path.parent.name != "admin"
+        if path.relative_to(PACKAGE).parts[0] != "admin"
         and any(m.startswith("banking.admin") for m in imported_modules(path))
     }
 

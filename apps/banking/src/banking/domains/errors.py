@@ -13,12 +13,3 @@ class InvalidError(Exception):
         super().__init__(message)
         self.field = field
         self.message = message
-
-
-class ConflictError(Exception):
-    """The request conflicts with the item's current state."""
-
-    def __init__(self, message: str) -> None:
-        """Say what the conflict is."""
-        super().__init__(message)
-        self.message = message

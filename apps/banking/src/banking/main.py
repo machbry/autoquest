@@ -13,7 +13,7 @@ from banking.api.routers import health, imports
 from banking.config import get_settings
 from banking.databases.engine import get_engine
 from banking.databases.repositories.base import ConstraintViolation
-from banking.domains.errors import ConflictError, NotFoundError
+from banking.domains.errors import NotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +59,6 @@ def create_app(admin_sessions: sessionmaker[Session] | None = None) -> FastAPI:
     async def not_found(request: Request, exc: NotFoundError) -> Response:
         """Answer 404 for an item that doesn't exist."""
         return PlainTextResponse("Not found", status_code=404)
-
-    @app.exception_handler(ConflictError)
-    async def conflict(request: Request, exc: ConflictError) -> Response:
-        """Answer 409 when a router didn't handle a conflict itself."""
-        return PlainTextResponse(exc.message, status_code=409)
 
     # Postgres messages quote the values at fault (names, account numbers), which must
     # never reach the logs: database errors are logged by code only.

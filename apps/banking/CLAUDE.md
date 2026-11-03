@@ -10,7 +10,7 @@ where stated.
 - **Business dates** (operation, export, opened/closed) are `DATE` with no timezone. The root
   "stored in UTC" rule applies to `created_at`/`updated_at` only.
 - **Invariants live in the database** (constraints, foreign keys): several components write
-  to the tables (web app, later the MCP server and the auto-labelling job).
+  to the tables (web app, admin, later the MCP server and the auto-labelling job).
 - **Logging, stricter than root:** log ids, counts and line numbers only. Never descriptions,
   amounts or account numbers.
 - **Persistence:** SQLAlchemy models and Alembic migrations own the `banking` schema; dbt owns
@@ -19,9 +19,5 @@ where stated.
 ## Overrides of the default stack
 - **No MotherDuck:** analytics run with dbt-postgres on the Neon database; the volume
   (~1,100 operations a year) doesn't justify a second store. Revisit if it grows.
-- **No NocoDB:** data editing is a starlette-admin mounted in the FastAPI app and built
-  from the SQLAlchemy models, so the schema stays in code: one service and one auth
-  surface. Its writes bypass the services (closing an account aside): invariants they
-  need belong in the database.
 - **No Firestore.**
 - **Raw statement files are never stored:** only parsed operations and import metadata.
