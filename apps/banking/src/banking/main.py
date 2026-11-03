@@ -9,7 +9,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
 
 from banking.admin import create_admin
-from banking.api.routers import accounts, health, imports
+from banking.api.routers import health, imports
 from banking.config import get_settings
 from banking.databases.engine import get_engine
 from banking.databases.repositories.base import ConstraintViolation
@@ -29,15 +29,15 @@ def create_app(admin_sessions: sessionmaker[Session] | None = None) -> FastAPI:
     """
     settings = get_settings()
     app = FastAPI(title="banking", docs_url=None, redoc_url=None, openapi_url=None)
-    for module in (accounts, health, imports):
+    for module in (health, imports):
         app.include_router(module.router)
     sessions = admin_sessions or sessionmaker(get_engine(), expire_on_commit=False)
     create_admin(sessions, settings.secret_key.get_secret_value()).mount_to(app)
 
     @app.get("/", include_in_schema=False)
     def home() -> RedirectResponse:
-        """Send visitors to the accounts list."""
-        return RedirectResponse("/accounts")
+        """Send visitors to the Import page, where the monthly routine starts."""
+        return RedirectResponse("/imports")
 
     @app.middleware("http")
     async def refuse_cross_site(

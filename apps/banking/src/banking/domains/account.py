@@ -33,11 +33,6 @@ class Account:
     opened_on: date
     closed_on: date | None
 
-    @property
-    def bank_id(self) -> int:
-        """Id of the account's bank, as the forms name it."""
-        return self.bank.id
-
 
 class FreshnessStatus(StrEnum):
     """How old an account's data is, against the bank's 90-day export window."""
@@ -54,14 +49,3 @@ class Freshness:
 
     status: FreshnessStatus
     days: int | None
-
-
-@dataclass(frozen=True)
-class AccountFields:
-    """What declaring or editing an account sets (its closing date excluded)."""
-
-    name: str
-    bank_id: int
-    type: AccountType
-    account_number: str | None
-    opened_on: date

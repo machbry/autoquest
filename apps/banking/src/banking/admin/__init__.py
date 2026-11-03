@@ -1,11 +1,10 @@
-"""Data editing: label operations, edit categories and banks.
+"""Data editing: label operations, edit accounts, categories and banks.
 
 A starlette-admin interface built from the SQLAlchemy models, so a column a migration
 adds shows up here. Only `main.py` mounts it; no layer imports it.
 """
 
 import logging
-from pathlib import Path
 
 from sqlalchemy.orm import Session, sessionmaker
 from starlette_admin import Link
@@ -29,16 +28,10 @@ def create_admin(sessions: sessionmaker[Session], secret_key: str) -> Admin:
 
     `secret_key` signs its CSRF and flash cookies.
     """
-    admin = Admin(
-        sessions,
-        title="Banking",
-        base_url="/admin",
-        templates_dir=str(Path(__file__).parent / "templates"),
-        secret_key=secret_key,
-    )
-    admin.add_view(Link("Accounts", url="/accounts"))
+    admin = Admin(sessions, title="Banking", base_url="/admin", secret_key=secret_key)
+    admin.add_view(Link("Import", url="/imports"))
     admin.add_view(OperationView(OperationModel))
+    admin.add_view(AccountView(AccountModel))
     admin.add_view(CategoryView(CategoryModel))
     admin.add_view(BankView(BankModel))
-    admin.add_view(AccountView(AccountModel))
     return admin

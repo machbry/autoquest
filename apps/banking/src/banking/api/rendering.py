@@ -1,4 +1,4 @@
-"""HTML pages: templates, and the form validation errors they display."""
+"""HTML pages: templates, and the links they build."""
 
 from calendar import monthrange
 from datetime import date
@@ -9,17 +9,8 @@ from urllib.parse import urlencode
 from fastapi import Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, ValidationError
-
-from banking.domains.account import AccountType
 
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-templates.env.globals["type_labels"] = {
-    AccountType.CURRENT: "Current",
-    AccountType.SAVINGS: "Savings",
-    AccountType.PEA: "PEA",
-    AccountType.LIFE_INSURANCE: "Life insurance",
-}
 
 
 def operations_url(account_id: int, month: date, unlabelled: bool = False) -> str:
@@ -33,27 +24,14 @@ def operations_url(account_id: int, month: date, unlabelled: bool = False) -> st
 
 templates.env.globals["operations_url"] = operations_url
 
-# Field name → message, shown next to the field.
-Errors = dict[str, str]
-
-
-def validate[T: BaseModel](
-    schema: type[T], data: dict[str, Any]
-) -> tuple[T | None, Errors]:
-    """Validate form data, returning field errors instead of raising."""
-    try:
-        return schema.model_validate(data), {}
-    except ValidationError as exc:
-        return None, {str(error["loc"][0]): error["msg"] for error in exc.errors()}
-
 
 def render(
     request: Request, template: str, status_code: int = 200, **context: Any
 ) -> HTMLResponse:
-    """Render a page; `values` and `errors` default to empty for the forms."""
+    """Render a page; `errors` (field → message) defaults to empty for the forms."""
     return templates.TemplateResponse(
         request,
         template,
-        {"values": {}, "errors": {}, **context},
+        {"errors": {}, **context},
         status_code=status_code,
     )

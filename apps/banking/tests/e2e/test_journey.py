@@ -28,7 +28,7 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
     export = build_export(number, today - timedelta(days=2), operations)
 
     with httpx.Client(base_url=BASE_URL) as client:
-        # The bank and the category are added in the admin.
+        # The bank, the category and the account are declared in the admin.
         client.get("/admin/banks/list")
         token = client.cookies["starlette_admin_csrftoken"]
         client.headers["X-CSRFToken"] = token
@@ -36,26 +36,29 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
             response = client.post(f"/admin/{view}/create", data={"name": name})
             assert response.status_code == 303
         bank_id = admin_id(client, "banks", bank)
-
         response = client.post(
-            "/accounts",
+            "/admin/accounts/create",
             data={
                 "name": account,
-                "bank_id": bank_id,
+                "bank": bank_id,
                 "type": "current",
                 "account_number": number,
                 "opened_on": "2024-01-01",
             },
         )
         assert response.status_code == 303
-        account_url = response.headers["location"]
+        account_id = admin_id(client, "accounts", account)
+
+        # The Import page lists it as never imported; a file is imported there.
+        assert client.get("/").headers["location"] == "/imports"
+        account_url = f"/imports?account_id={account_id}"
         page = client.get(account_url).text
         assert account in page
         assert bank in page
         assert "Never imported" in page
 
         response = client.post(
-            f"{account_url}/imports", files={"file": ("export.csv", export)}
+            f"/accounts/{account_id}/imports", files={"file": ("export.csv", export)}
         )
         assert response.status_code == 303
         page = client.get(response.headers["location"]).text
@@ -84,15 +87,18 @@ def test_declare_an_account_import_label_its_operations_then_delete_it():
             assert response.status_code == 200
         assert "category__is_null" not in client.get(account_url).text
 
-        # Cleaning up is part of the journey: the account (and its labels) on its
-        # page, then the now unused category and bank in the admin.
-        assert client.post(f"{account_url}/delete").status_code == 303
-        assert account not in client.get("/accounts").text
-        for view, item_id in (("categories", category_id), ("banks", bank_id)):
+        # Cleaning up is part of the journey, in the admin: the account (and its
+        # history), then the now unused category and bank.
+        for view, item_id in (
+            ("accounts", account_id),
+            ("categories", category_id),
+            ("banks", bank_id),
+        ):
             response = client.post(
                 f"/admin/_api/{view}/action", params={"name": "delete", "pks": item_id}
             )
             assert response.status_code == 200
+        assert account not in client.get("/imports").text
         banks = client.get("/admin/banks/list", params={"q": bank}).text
         assert "data-sa-pk" not in banks
 

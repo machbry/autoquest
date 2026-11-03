@@ -1,62 +1,92 @@
-import html
-import re
+"""Accounts in the admin: declare, edit, close and delete, within the constraints."""
+
 from datetime import date
 
 import pytest
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 
-from banking.databases.models import AccountModel
+from banking.databases.models import AccountModel, ImportModel, OperationModel
 
 MAX_ID = 2**31 - 1  # largest INTEGER
 
 
+@pytest.fixture
+def account_form(admin, bank):
+    """Make the admin account form's data, with overrides."""
+
+    def make(**overrides):
+        return {
+            "csrftoken": admin.headers["X-CSRFToken"],
+            "name": "Main account",
+            "bank": str(bank.id),
+            "type": "current",
+            "account_number": "12345A",
+            "opened_on": "2020-01-15",
+        } | overrides
+
+    return make
+
+
+@pytest.fixture
+def declare(admin, session, account_form):
+    """Declare an account in the admin; return its id."""
+
+    def post(**overrides):
+        response = admin.post("/admin/accounts/create", data=account_form(**overrides))
+        assert response.status_code == 303
+        name = overrides.get("name", "Main account")
+        return session.scalar(select(AccountModel.id).filter_by(name=name))
+
+    return post
+
+
 # The local database also holds seed data: compare counts, don't expect an empty table.
-def count_accounts(session):
-    return session.scalar(select(func.count()).select_from(AccountModel))
+def count(session, model, **where):
+    return session.scalar(select(func.count()).select_from(model).filter_by(**where))
 
 
-def stored_number(session, name="Main account"):
-    return session.scalar(select(AccountModel.account_number).filter_by(name=name))
+def stored(session, account_id):
+    """The account as stored now; None once deleted."""
+    session.expire_all()
+    query = select(AccountModel).filter_by(id=account_id)
+    return session.scalars(query).one_or_none()
 
 
-def close(client, url, closed_on):
-    return client.post(f"{url}/close", data={"closed_on": closed_on})
+def close(admin, account_id, closed_on):
+    return admin.post(
+        "/admin/_api/accounts/row-action",
+        params={"name": "close", "pk": account_id},
+        data={"closed_on": closed_on},
+    )
 
 
-def test_declared_account_is_listed(client, declare):
-    url = declare()
+def test_declared_account_is_stored_and_listed(admin, session, declare, bank):
+    account_id = declare(type="savings")
 
-    assert "Main account" in client.get("/accounts").text
-    page = client.get(url).text
-    assert "Test bank" in page
-    assert "12345A" in page
-
-
-def test_home_redirects_to_the_accounts_list(client):
-    response = client.get("/")
-
-    assert response.status_code == 307
-    assert response.headers["location"] == "/accounts"
+    account = stored(session, account_id)
+    assert (account.bank_id, account.type, account.opened_on) == (
+        bank.id,
+        "savings",
+        date(2020, 1, 15),
+    )
+    assert "Main account" in admin.get("/admin/accounts/list").text
 
 
-def test_account_form_offers_the_banks(client, bank):
-    page = client.get("/accounts/new").text
-
-    assert f'<option value="{bank.id}"' in page
-    assert "Test bank" in page
+def test_account_form_has_no_closing_date(admin):
+    assert 'name="closed_on"' not in admin.get("/admin/accounts/create").text
 
 
 def test_account_number_is_stored_without_spaces_and_uppercased(session, declare):
-    declare(account_number=" 12 345a ")
-
-    assert stored_number(session) == "12345A"
+    assert stored(session, declare(account_number=" 12 345a ")).account_number == (
+        "12345A"
+    )
 
 
 def test_account_number_is_optional(session, declare):
-    declare(account_number="", type="life_insurance")
+    account_id = declare(account_number="  ", type="life_insurance")
 
-    assert stored_number(session) is None
+    assert stored(session, account_id).account_number is None
 
 
 @pytest.mark.parametrize(
@@ -64,189 +94,128 @@ def test_account_number_is_optional(session, declare):
     [
         ({"account_number": "123 45a"}, "Another account already has this number."),
         ({"account_number": "999"}, "Another account already has this name."),
-        (
-            {"name": "Other", "account_number": "999", "bank_id": str(MAX_ID)},
-            "Unknown bank.",
-        ),
+        ({"name": "Other", "account_number": "12-34"}, "Letters and digits only"),
+        ({"name": "Other", "account_number": "1" * 35}, "Letters and digits only"),
+        ({"name": "Other", "account_number": "999", "opened_on": ""}, ""),
+        ({"name": "Other", "account_number": "999", "bank": ""}, ""),
+        ({"name": "Other", "account_number": "999", "type": "other"}, "Choose a type."),
+        # Regression: Postgres can't store NUL in text, the insert failed (500).
+        ({"name": "a\x00b", "account_number": "999"}, "Invalid character."),
     ],
 )
-def test_conflicts_are_rejected_and_nothing_written(
-    client, session, declare, account_form, overrides, message
+def test_invalid_or_taken_fields_are_refused_on_their_field(
+    admin, session, declare, account_form, overrides, message
 ):
     declare()
-    before = count_accounts(session)
+    before = count(session, AccountModel)
 
-    response = client.post("/accounts", data=account_form(**overrides))
+    response = admin.post("/admin/accounts/create", data=account_form(**overrides))
 
     assert response.status_code == 422
     assert message in response.text
-    assert count_accounts(session) == before
+    assert count(session, AccountModel) == before
 
 
-def test_invalid_fields_are_reported_and_nothing_written(client, session, account_form):
-    before = count_accounts(session)
+def test_edit_changes_the_account(admin, session, declare, account_form):
+    account_id = declare()
 
-    response = client.post(
-        "/accounts",
-        data=account_form(
-            name=" ", type="other", account_number="12-34", opened_on="x", bank_id="0"
-        ),
+    response = admin.post(
+        "/admin/accounts/edit",
+        params={"pk": account_id},
+        data=account_form(name="Renamed", type="pea"),
     )
 
-    assert response.status_code == 422
-    assert response.text.count('class="error"') == 5
-    assert count_accounts(session) == before
-
-
-def test_html_in_a_name_is_escaped(client, declare):
-    url = declare(name="<script>x</script>")
-
-    assert "<script>x" not in client.get(url).text
-    assert "&lt;script&gt;x" in client.get("/accounts").text
-
-
-def test_edit_changes_the_account(client, declare, account_form):
-    url = declare()
-
-    response = client.post(url, data=account_form(name="Renamed", type="savings"))
-
     assert response.status_code == 303
-    page = client.get(url).text
-    assert "Renamed" in page
-    assert "Savings" in page
+    account = stored(session, account_id)
+    assert (account.name, account.type) == ("Renamed", "pea")
 
 
-def test_edit_form_is_prefilled(client, declare, bank):
-    url = declare()
+def test_closed_account_keeps_its_data(admin, session, declare):
+    account_id = declare()
 
-    page = client.get(f"{url}/edit").text
+    assert close(admin, account_id, "2026-03-31").status_code == 200
 
-    assert 'value="12345A"' in page
-    assert 'value="2020-01-15"' in page
-    assert f'<option value="{bank.id}" selected>' in page
-
-
-def test_closed_account_stays_visible(client, declare):
-    url = declare()
-
-    assert close(client, url, "2026-03-31").status_code == 303
-
-    assert "Closed on 2026-03-31" in client.get("/accounts").text
-    page = client.get(url).text
-    assert "Main account" in page
-    assert "Close account" not in page
+    account = stored(session, account_id)
+    assert (account.name, account.closed_on) == ("Main account", date(2026, 3, 31))
 
 
-def test_account_cannot_close_before_it_opened(client, declare):
-    url = declare()
+def test_account_cannot_close_before_it_opened(admin, session, declare):
+    account_id = declare()
 
-    response = close(client, url, "2019-12-31")
+    response = close(admin, account_id, "2019-12-31")
 
-    assert response.status_code == 422
-    assert "can&#39;t close before it opened" in response.text
-    assert "Close account" in client.get(url).text
+    assert response.status_code == 400
+    assert "can't close before it opened" in response.json()["msg"]
+    assert stored(session, account_id).closed_on is None
+
+
+@pytest.mark.parametrize("closed_on", ["", "x"])
+def test_close_requires_a_date(admin, session, declare, closed_on):
+    account_id = declare()
+
+    assert close(admin, account_id, closed_on).status_code == 400
+    assert stored(session, account_id).closed_on is None
+
+
+def test_closed_account_cannot_be_closed_again(admin, session, declare):
+    account_id = declare()
+    close(admin, account_id, "2026-03-31")
+
+    assert close(admin, account_id, "2026-04-30").status_code == 400
+    assert stored(session, account_id).closed_on == date(2026, 3, 31)
+
+
+@pytest.mark.parametrize("pk", ["x", "0", str(MAX_ID + 1), str(MAX_ID)])
+def test_unknown_or_invalid_id_is_refused(admin, pk):
+    # Regression: a non-numeric id answered 500.
+    assert close(admin, pk, "2026-03-31").status_code == 400
+    assert admin.get("/admin/accounts/detail", params={"pk": pk}).status_code == 404
 
 
 def test_edit_cannot_open_a_closed_account_after_its_closing(
-    client, declare, account_form
+    admin, declare, account_form
 ):
-    url = declare()
-    close(client, url, "2021-01-01")
+    account_id = declare()
+    close(admin, account_id, "2021-01-01")
 
-    response = client.post(url, data=account_form(opened_on="2022-01-01"))
+    response = admin.post(
+        "/admin/accounts/edit",
+        params={"pk": account_id},
+        data=account_form(opened_on="2022-01-01"),
+    )
 
     assert response.status_code == 422
     assert "The account was closed before this date." in response.text
 
 
-def test_closed_account_cannot_be_closed_again(client, declare):
-    url = declare()
-    close(client, url, "2026-03-31")
-
-    assert close(client, url, "2026-04-30").status_code == 409
-
-
-def test_close_requires_a_date(client, declare):
-    url = declare()
-
-    assert close(client, url, "").status_code == 422
-
-
-def test_deleted_account_is_gone(client, session, declare):
-    url = declare()
-    before = count_accounts(session)
-
-    response = client.post(f"{url}/delete")
-
-    assert response.status_code == 303
-    assert response.headers["location"] == "/accounts"
-    assert count_accounts(session) == before - 1
-    assert "Main account" not in client.get("/accounts").text
-    assert client.get(url).status_code == 404
-
-
-def test_closed_account_can_be_deleted(client, declare):
-    url = declare()
-    close(client, url, "2026-03-31")
-
-    assert client.post(f"{url}/delete").status_code == 303
-    assert client.get(url).status_code == 404
-
-
-@pytest.mark.parametrize(
-    ("method", "path"),
-    [
-        ("get", f"/accounts/{MAX_ID}"),
-        ("get", f"/accounts/{MAX_ID}/edit"),
-        ("post", f"/accounts/{MAX_ID}"),
-        ("post", f"/accounts/{MAX_ID}/delete"),
-    ],
-)
-def test_unknown_account_is_not_found(client, account_form, method, path):
-    data = {"data": account_form()} if method == "post" else {}
-
-    assert getattr(client, method)(path, **data).status_code == 404
-
-
-def test_account_id_beyond_the_integer_range_is_refused(client):
-    # Regression: an id too large for INTEGER made Postgres fail (500).
-    assert client.get(f"/accounts/{MAX_ID + 1}").status_code == 422
-
-
-def test_nul_character_is_refused_and_nothing_written(client, session, account_form):
-    # Regression: Postgres can't store NUL in text, the insert failed (500).
-    before = count_accounts(session)
-
-    response = client.post("/accounts", data=account_form(name="a\x00b"))
-
-    assert response.status_code == 422
-    assert count_accounts(session) == before
-
-
-@pytest.mark.parametrize("action", ["", "/delete"])
-def test_cross_site_post_is_refused_and_nothing_changed(
-    client, session, declare, account_form, action
+@pytest.mark.parametrize("closed", [False, True])
+def test_deleting_an_account_deletes_its_imports_and_operations(
+    admin, session, account, add_operation, closed
 ):
-    url = declare()
-    before = count_accounts(session)
+    account_id = account.id
+    add_operation(date(2026, 10, 1))
+    if closed:
+        close(admin, account_id, "2026-10-31")
 
-    response = client.post(
-        f"{url}{action}",
-        data=account_form(name="Renamed"),
-        headers={"Sec-Fetch-Site": "cross-site"},
+    response = admin.post(
+        "/admin/_api/accounts/row-action", params={"name": "delete", "pk": account_id}
+    )
+
+    assert response.status_code == 200
+    assert stored(session, account_id) is None
+    assert count(session, ImportModel, account_id=account_id) == 0
+    assert count(session, OperationModel, account_id=account_id) == 0
+
+
+def test_admin_refuses_a_cross_site_account_delete(admin, session, account):
+    response = admin.post(
+        "/admin/_api/accounts/action",
+        params={"name": "delete", "pks": [str(account.id)]},
+        headers={"sec-fetch-site": "cross-site"},
     )
 
     assert response.status_code == 403
-    assert count_accounts(session) == before
-    assert "Main account" in client.get(url).text
-
-
-def test_same_origin_post_is_accepted(client, account_form):
-    response = client.post(
-        "/accounts", data=account_form(), headers={"Sec-Fetch-Site": "same-origin"}
-    )
-
-    assert response.status_code == 303
+    assert stored(session, account.id) is not None
 
 
 @pytest.mark.parametrize(
@@ -254,7 +223,7 @@ def test_same_origin_post_is_accepted(client, account_form):
     [{"bank_id": MAX_ID}, {"type": "other"}, {"closed_on": "2019-01-01"}],
 )
 def test_database_enforces_account_invariants(session, bank, overrides):
-    # Other writers (MCP server, jobs) will skip the web forms: the DB must refuse.
+    # The admin and other writers (MCP server, jobs) skip the services: the DB refuses.
     row = {
         "name": "x",
         "bank_id": bank.id,
@@ -272,47 +241,3 @@ def test_database_enforces_account_invariants(session, bank, overrides):
             ),
             row,
         )
-
-
-def test_account_page_recaps_operations_by_month(
-    client, account, add_account, add_operation, groceries
-):
-    october = [
-        add_operation(date(2026, 10, 1), category=groceries),
-        add_operation(date(2026, 10, 31)),
-    ]
-    november = add_operation(date(2026, 11, 2))
-    add_operation(date(2026, 10, 15), target=add_account("Other account"))
-
-    page = re.sub(r"\s+", " ", client.get(f"/accounts/{account.id}").text)
-
-    rows = re.findall(
-        r"<tr> <td><a href=\"([^\"]+)\">([\d-]+)</a></td>(.*?)</tr>", page
-    )
-    assert [month for _, month, _ in rows] == ["2026-11", "2026-10"]
-    counts = [
-        re.findall(r'class="num">(?:<a [^>]*>)?(\d+)', cells) for *_, cells in rows
-    ]
-    assert counts == [["1", "0", "1"], ["2", "1", "1"]]
-    # Each month links to the admin's table of its operations, all or unlabelled.
-    links = re.findall(r'href="(/admin/operations/list\?filter=[^"]+)"', page)
-    links = [html.unescape(link) for link in links]
-    assert [listed_ids(client, link) for link in links] == [
-        [november.id],
-        [november.id],
-        [october[1].id, october[0].id],
-        [october[1].id],
-    ]
-    # The recap replaces the operation list.
-    assert "LABELTEST" not in page
-
-
-def listed_ids(client, url):
-    """The ids of the operations an admin list page shows, in order."""
-    page = client.get(url)
-    assert page.status_code == 200
-    return [int(pk) for pk in re.findall(r'<tr data-sa-pk="(\d+)"', page.text)]
-
-
-def test_account_without_operations_says_so(client, account):
-    assert "No operation yet." in client.get(f"/accounts/{account.id}").text

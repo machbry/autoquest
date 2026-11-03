@@ -1,7 +1,7 @@
 """The layers only depend downwards: api → services → databases, all → domains.
 
 Dev-only `tools` may import any layer; no layer imports them. The admin reads the
-models; only `main.py` mounts it.
+models and may call the services; only `main.py` mounts it.
 """
 
 import ast
@@ -20,7 +20,7 @@ FORBIDDEN_IMPORTS = {
     "services": ("banking.api",),
     "api/routers": ("banking.databases",),
     "api/schemas": ("banking.databases", "banking.services"),
-    "admin": ("banking.api", "banking.services"),
+    "admin": ("banking.api",),
 }
 
 
