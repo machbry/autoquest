@@ -4,7 +4,7 @@ Project skills for Claude Code. `product-brainstorming`, `write-spec` and `roadm
 adapted from [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins)
 (Apache-2.0, see `LICENSE-knowledge-work-plugins`) and customized for this repo.
 
-`architecture-diagram` is home-grown.
+`architecture-diagram` and `rules-audit` are home-grown.
 
 The adapted skills are vendored, not installed as a plugin: like any dependency, they are pinned, and
 updates are reviewed in a PR instead of applied automatically.
