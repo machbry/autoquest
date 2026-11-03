@@ -1,5 +1,6 @@
 # Monthly audit of the code against the CLAUDE.md rules that need judgement (the
-# mechanical ones are tests). Opens or updates issues; never touches the code.
+# mechanical ones are tests). Read-only: it reports the findings in the job summary and
+# fails when there are any; issues are then written by hand with /write-spec.
 # Runs on the Claude subscription (OAuth token from `claude setup-token`), not an API key.
 name: Rules audit
 
@@ -21,24 +22,43 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Read-only tools plus the GitHub issue tools: no shell, no web, no file writes.
-      # github_token: the job's token, so the action needs no GitHub App or OIDC.
-      - uses: anthropics/claude-code-action@8d70a0dd265122bd65b8e09d3d959e65373ae2a1 # v1.0.260
+      # Read-only tools only: no shell, no web, no file writes, no GitHub writes.
+      # github_token: the job's read-only token, so the action needs no GitHub App.
+      - name: Audit
+        id: audit
+        uses: anthropics/claude-code-action@8d70a0dd265122bd65b8e09d3d959e65373ae2a1 # v1.0.260
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
           prompt: |
             Run the rules-audit skill (.claude/skills/rules-audit/SKILL.md) on the
-            whole repository ${{ github.repository }}. You run unattended: nobody can
-            answer questions or approve drafts, so file the issues directly.
+            whole repository, and return its groups as the structured output.
           claude_args: >-
             --max-turns 150
-            --allowedTools
-            Read,Glob,Grep,Skill,mcp__github__list_issues,mcp__github__search_issues,mcp__github__get_issue,mcp__github__get_issue_comments,mcp__github__create_issue,mcp__github__add_issue_comment
-            --disallowedTools
-            Bash,Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch
+            --allowedTools Read,Glob,Grep,Skill
+            --disallowedTools Bash,Edit,MultiEdit,Write,NotebookEdit,WebFetch,WebSearch
+            --json-schema '{"type":"object","required":["findings"],"properties":{"findings":{"type":"array","items":{"type":"object","required":["rule","source","scope","locations"],"properties":{"rule":{"type":"string"},"source":{"type":"string"},"scope":{"type":"string"},"locations":{"type":"array","items":{"type":"string"}}}}}}}'
+      # Output comes in through env, never ${{ }} in the script. Workflow commands are
+      # paused while it prints, so its text can't inject any.
+      - name: Report
+        env:
+          OUTPUT: ${{ steps.audit.outputs.structured_output }}
+        run: |
+          if ! jq -e '.findings | type == "array"' <<< "$OUTPUT" > /dev/null; then
+            echo "::error::The audit returned no findings list."
+            exit 1
+          fi
+          count=$(jq '.findings | length' <<< "$OUTPUT")
+          report=$(jq -r '.findings[] | "### \(.rule)\n\(.source) · \(.scope)\n\(.locations | map("- " + .) | join("\n"))\n"' <<< "$OUTPUT")
+          token=$(uuidgen)
+          echo "::stop-commands::$token"
+          echo "${report:-No violation found.}" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "::$token::"
+          if (( count > 0 )); then
+            echo "::error::$count rules-audit finding(s): review them in the job summary, then /write-spec the issues to fix."
+            exit 1
+          fi
