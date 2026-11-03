@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from banking.config import get_settings
+from banking.config import Settings, get_settings
 from banking.main import create_app
 
 
@@ -10,6 +10,10 @@ def fresh_settings():
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
+
+
+def test_settings_read_variables_prefixed_with_the_app_name():
+    assert Settings.model_config["env_prefix"] == "BANKING_"
 
 
 def test_app_refuses_to_start_without_db_url(monkeypatch):

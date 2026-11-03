@@ -28,6 +28,8 @@ jobs:
       - run: uv sync --locked
       - name: Pre-commit hooks (format, lint, types, whitespace)
         run: uv run pre-commit run --all-files --show-diff-on-failure
+      - name: Repo rules (CLAUDE.md)
+        run: uv run pytest tests
       # The local stack, as in development: integration tests use its database, e2e
       # tests its web app. Building it also checks the image.
       - name: Start the local stack
