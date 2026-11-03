@@ -1,12 +1,15 @@
-"""The admin's views: operations to label, categories and banks to edit.
+"""The admin's views: operations to label; accounts, categories and banks to edit.
 
 They write the tables directly, not through the services: the database constraints
-hold the invariants, and broken ones are shown to the user by name.
+hold the invariants, and broken ones are shown to the user by name. Closing an account
+is the exception: it reuses the account service's rules.
 """
 
 import html
 import logging
+import re
 from collections.abc import Sequence
+from datetime import date
 from typing import Any
 
 import anyio.to_thread
@@ -17,11 +20,13 @@ from starlette.requests import Request
 from starlette_admin import (
     DateField,
     DecimalField,
+    EnumField,
     HasOne,
     IntegerField,
     StringField,
     action,
     flash,
+    row_action,
 )
 from starlette_admin.actions import ActionSelection
 from starlette_admin.contrib.sqla import ModelView
@@ -31,9 +36,13 @@ from starlette_admin.filters import FilterRegistry as BaseFilterRegistry
 from banking.admin.filters import FilterRegistry
 from banking.databases.models import (
     AccountModel,
+    BankModel,
     CategoryModel,
     OperationModel,
 )
+from banking.domains.account import AccountType, normalize_account_number
+from banking.domains.errors import ConflictError, InvalidError, NotFoundError
+from banking.services.accounts.account_service import AccountService
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +50,30 @@ logger = logging.getLogger(__name__)
 SAVE_ERRORS = {
     "uq_banks_name": ("name", "Another bank already has this name."),
     "uq_categories_name": ("name", "Another category already has this name."),
+    "uq_accounts_name": ("name", "Another account already has this name."),
+    "uq_accounts_account_number": (
+        "account_number",
+        "Another account already has this number.",
+    ),
+    "ck_accounts_closed_after_opened": (
+        "opened_on",
+        "The account was closed before this date.",
+    ),
 }
 # Broken constraint → message, for a delete.
 DELETE_ERRORS = {
     "fk_accounts_bank_id": "Accounts still use this bank.",
     "fk_operations_category_id": "Operations still use this category: merge it.",
 }
+ACCOUNT_TYPES = [
+    (AccountType.CURRENT.value, "Current"),
+    (AccountType.SAVINGS.value, "Savings"),
+    (AccountType.PEA.value, "PEA"),
+    (AccountType.LIFE_INSURANCE.value, "Life insurance"),
+]
+MAX_ID = 2**31 - 1  # largest INTEGER
+# Spaces dropped and uppercased first; the longest number is an IBAN.
+ACCOUNT_NUMBER = re.compile(r"[A-Z0-9]{1,34}")
 
 
 def _constraint(exc: IntegrityError) -> str | None:
@@ -56,6 +83,13 @@ def _constraint(exc: IntegrityError) -> str | None:
 
 def _ids(pks: Sequence[Any]) -> list[int]:
     return [int(pk) for pk in pks]
+
+
+def _valid_id(raw: Any) -> int | None:
+    """The id `raw` names, if it is one an INTEGER column can hold; else None."""
+    if not isinstance(raw, str | int) or not str(raw).isdigit():
+        return None
+    return int(raw) if 1 <= int(raw) <= MAX_ID else None
 
 
 class View(ModelView):
@@ -71,6 +105,13 @@ class View(ModelView):
     async def repr(self, obj: Any, request: Request) -> str:
         """A record shows by its name (in relations, pickers and messages)."""
         return str(obj.name)
+
+    async def find_by_pk(self, request: Request, pk: Any) -> Any:
+        """The record with this id; None for an invalid one, rather than failing."""
+        # Regression: a non-numeric id in the address answered 500.
+        if (record_id := _valid_id(pk)) is None:
+            return None
+        return await super().find_by_pk(request, record_id)
 
     async def handle_exception(self, request: Request, exc: Exception) -> None:
         """Show a known broken constraint next to its field; raise anything else."""
@@ -97,12 +138,7 @@ class OperationView(View):
     display_name = "Operation"
     fields = [
         DateField("operation_date", label="Date"),
-        HasOne(
-            "account",
-            key="accounts",
-            list_template="account_list.html",
-            detail_template="account_detail.html",
-        ),
+        HasOne("account", key="accounts"),
         StringField("description"),
         DecimalField("amount"),
         HasOne("category", key="categories"),
@@ -169,7 +205,7 @@ class OperationView(View):
 
 
 class NamedView(View):
-    """Records with a name: trimmed, required, and as long as its column allows."""
+    """Records with a name: trimmed, required, as long as its column allows."""
 
     fields = [StringField("name")]
     fields_default_sort = ["name"]
@@ -184,6 +220,9 @@ class NamedView(View):
         limit = self.model.__table__.c.name.type.length
         if not name:
             raise FormValidationError({"name": "Enter a name."})
+        # Postgres text can't hold NUL: refused here rather than failing on insert.
+        if "\x00" in name:
+            raise FormValidationError({"name": "Invalid character."})
         if len(name) > limit:
             raise FormValidationError({"name": f"{limit} characters at most."})
         data["name"] = name
@@ -242,17 +281,119 @@ class BankView(NamedView):
 
 
 class AccountView(NamedView):
-    """Accounts, for the operations' account column and filter only.
-
-    The app's own pages manage accounts: this view isn't in the menu, and opens nothing.
-    """
+    """Accounts: declare, edit, close (keeps the history) or delete (removes it)."""
 
     key = "accounts"
+    menu_label = "Accounts"
     display_name = "Account"
+    fields = [
+        StringField("name", required=True),
+        HasOne("bank", key="banks", required=True),
+        EnumField("type", choices=ACCOUNT_TYPES, required=True),
+        StringField("account_number", label="Account number"),
+        DateField("opened_on", label="Opened on", required=True),
+        DateField("closed_on", label="Closed on"),
+    ]
+    # Closing has its own action, which checks the account is still open.
+    exclude_fields_from_create = ["closed_on"]
+    exclude_fields_from_edit = ["closed_on"]
+    searchable_fields = ["name", "bank", "type", "account_number"]
+    sortable_fields = ["name", "bank", "type", "opened_on", "closed_on"]
+    sortable_field_mapping = {"bank": BankModel.name}
+    # Postgres sorts NULLs first when descending: open accounts by name, then closed.
+    fields_default_sort = [("closed_on", True), "name"]
+    row_actions = ["view", "edit", "close", "delete"]
 
-    def is_accessible(self, request: Request) -> bool:
-        """Hidden: the app's account pages are the place for accounts."""
-        return False
+    async def validate(self, request: Request, data: dict[str, Any]) -> None:
+        """Check the name and type; store the number normalized, or none if empty.
+
+        Raises:
+            FormValidationError: the name, the type or the number is invalid.
+        """
+        await super().validate(request, data)
+        if data.get("type") not in set(AccountType):
+            raise FormValidationError({"type": "Choose a type."})
+        number = normalize_account_number(str(data.get("account_number") or ""))
+        if number and not ACCOUNT_NUMBER.fullmatch(number):
+            raise FormValidationError(
+                {"account_number": "Letters and digits only, 34 at most."}
+            )
+        data["account_number"] = number or None
+
+    async def is_row_action_allowed_for_obj(
+        self, request: Request, name: str, obj: Any
+    ) -> bool:
+        """A closed account can't be closed again."""
+        if name == "close" and obj.closed_on is not None:
+            return False
+        return await super().is_row_action_allowed_for_obj(request, name, obj)
+
+    @row_action(
+        name="close",
+        text="Close",
+        confirmation="Close this account? Its history stays; it can't be reopened.",
+        submit_btn_text="Close account",
+        icon_class="fa fa-lock",
+        form=lambda request, obj: _close_form(),
+        modal_size="md",
+    )
+    async def close(self, request: Request, pk: Any) -> None:
+        """Close the account on the date the form sent."""
+        try:
+            closed_on = date.fromisoformat(str((await request.form()).get("closed_on")))
+        except ValueError:
+            raise ActionFailed("Enter the closing date.") from None
+        if (account_id := _valid_id(pk)) is None:
+            raise ActionFailed("Unknown account.")
+        accounts = AccountService(request.state.session)
+        try:
+            await anyio.to_thread.run_sync(accounts.close, account_id, closed_on)
+        except (InvalidError, ConflictError) as exc:
+            raise ActionFailed(exc.message) from exc
+        except NotFoundError as exc:
+            raise ActionFailed("Unknown account.") from exc
+        flash(request, "Account closed.", "success")
+
+    @action(
+        name="delete",
+        text="Delete",
+        confirmation="Delete the selected accounts and all their history (imports, "
+        "operations)? To keep the history, close them instead.",
+        submit_btn_text="Delete with their history",
+        submit_btn_class="action.modal_confirm_button_delete",
+    )
+    async def delete_action(self, request: Request, selection: ActionSelection) -> None:
+        """Delete the selected accounts, warning that their history goes too."""
+        await super().delete_action(request, selection)
+
+    @row_action(
+        name="delete",
+        text="Delete",
+        confirmation="Delete this account and all its history (imports, operations)? "
+        "To keep the history, close it instead.",
+        icon_class="default_actions.delete",
+        submit_btn_text="Delete with its history",
+        submit_btn_class="action.modal_confirm_button_delete",
+        action_btn_class="action.row_item_delete",
+    )
+    async def row_action_3_delete(self, request: Request, pk: Any) -> None:
+        """Delete the account, warning that its history goes too."""
+        await super().row_action_3_delete(request, pk)
+
+    async def delete(self, request: Request, pks: list[Any]) -> int | None:
+        """Delete accounts and, through the database's cascades, their history."""
+        deleted = await super().delete(request, pks)
+        logger.info("accounts %s deleted", ", ".join(map(str, _ids(pks))))
+        return deleted
+
+
+def _close_form() -> str:
+    """The close action's form: the closing date, today by default."""
+    return (
+        '<form><label class="form-label mt-3" for="closed_on">Closed on</label>'
+        '<input class="form-control" type="date" id="closed_on" name="closed_on" '
+        f'value="{date.today().isoformat()}" required></form>'
+    )
 
 
 def _category_select(request: Request, name: str) -> str:
@@ -272,9 +413,9 @@ async def _form_id(request: Request, name: str) -> int | None:
     raw = (await request.form()).get(name)
     if not raw:
         return None
-    if not isinstance(raw, str) or not raw.isdigit() or int(raw) > 2**31 - 1:
+    if (category_id := _valid_id(raw)) is None:
         raise ActionFailed("Unknown category.")
-    return int(raw)
+    return category_id
 
 
 async def _set_category(

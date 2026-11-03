@@ -1,44 +1,15 @@
-"""Submitted form data and uploaded files."""
+"""Uploaded files."""
 
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
-from starlette.datastructures import ImmutableMultiDict, UploadFile
+from starlette.datastructures import UploadFile
 
 from banking.services.imports.import_service import MAX_FILE_BYTES
 
 # Refused before the body is read; smaller bodies are cut, so the service can tell the
 # user their file is too large.
 MAX_UPLOAD_BYTES = 2 * MAX_FILE_BYTES
-# Fields of one form: the account form has the most.
-MAX_FORM_FIELDS = 20
-
-
-def _values(data: ImmutableMultiDict[str, Any]) -> dict[str, Any]:
-    """Each field's value; a repeated field (checkboxes) gives the list of its values.
-
-    Postgres text can't hold NUL: it is refused here rather than failing on insert.
-    """
-    values = {key: data.getlist(key) for key in data}
-    if any(
-        "\x00" in value
-        for items in values.values()
-        for value in items
-        if isinstance(value, str)
-    ):
-        raise HTTPException(status_code=422, detail="NUL characters are not allowed")
-    return {
-        key: items[0] if len(items) == 1 else items for key, items in values.items()
-    }
-
-
-async def form_data(request: Request) -> dict[str, Any]:
-    """Read the submitted form.
-
-    Reading a form is async; doing it in a dependency lets the handlers stay sync, so
-    FastAPI runs their blocking database calls in a thread, off the event loop.
-    """
-    return _values(await request.form(max_fields=MAX_FORM_FIELDS))
 
 
 async def uploaded_file(request: Request) -> bytes:
@@ -63,5 +34,4 @@ async def uploaded_file(request: Request) -> bytes:
     return await file.read(MAX_FILE_BYTES + 1)
 
 
-FormDep = Annotated[dict[str, Any], Depends(form_data)]
 UploadDep = Annotated[bytes, Depends(uploaded_file)]

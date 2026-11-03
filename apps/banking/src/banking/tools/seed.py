@@ -1,7 +1,7 @@
 """Deterministic fake data for the local stack: `python -m banking.tools.seed`.
 
 Dev only: Faker comes from the dev dependency group, which the prd image doesn't
-install. It writes accounts and imports through the services, like the app, and banks,
+install. It writes imports through the service, like the app, and banks, accounts,
 categories and labels to the tables, like the admin. Re-running it adds nothing.
 """
 
@@ -13,9 +13,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from banking.databases.engine import get_engine
-from banking.databases.models import BankModel, CategoryModel, OperationModel
-from banking.domains.account import Account, AccountFields, AccountType
-from banking.services.accounts.account_service import AccountService
+from banking.databases.models import (
+    AccountModel,
+    BankModel,
+    CategoryModel,
+    OperationModel,
+)
+from banking.domains.account import AccountType
 from banking.services.imports.import_service import ImportService
 from banking.tools.fakes import build_export, fake_operations
 
@@ -66,12 +70,11 @@ EXPORT_WINDOW_DAYS = 90
 
 def seed(session: Session) -> int:
     """Add the fake banks, accounts, imports, categories and labels missing; count."""
-    account_service = AccountService(session)
     added = _add_named(session, BankModel, BANKS)
     banks = {
         name: id_ for name, id_ in session.execute(select(BankModel.name, BankModel.id))
     }
-    existing = {account.name for account in account_service.list()}
+    existing = set(session.scalars(select(AccountModel.name)))
 
     fake = Faker()
     fake.seed_instance(SEED)
@@ -82,19 +85,22 @@ def seed(session: Session) -> int:
         number = fake.bothify("##########?", letters="ABCDEFGHJK")
         if name in existing:
             continue
-        fields = AccountFields(
-            name=name,
-            bank_id=banks[bank],
-            type=type_,
-            account_number=None if bank == NO_ACCOUNT_NUMBER else number,
-            opened_on=opened_on,
+        session.add(
+            AccountModel(
+                name=name,
+                bank_id=banks[bank],
+                type=type_,
+                account_number=None if bank == NO_ACCOUNT_NUMBER else number,
+                opened_on=opened_on,
+                closed_on=closed_on,
+            )
         )
-        account = account_service.create(fields)
-        if closed_on:
-            account_service.close(account.id, closed_on)
         added += 1
+    session.commit()
 
-    current = next(a for a in account_service.list() if a.name == IMPORTED_ACCOUNT)
+    current = session.scalars(
+        select(AccountModel).filter_by(name=IMPORTED_ACCOUNT)
+    ).one()
     added += _seed_imports(session, current)
     added += _add_named(session, CategoryModel, CATEGORIES)
     return added + _seed_labels(session, current)
@@ -111,7 +117,7 @@ def _add_named(
     return len(missing)
 
 
-def _seed_labels(session: Session, account: Account) -> int:
+def _seed_labels(session: Session, account: AccountModel) -> int:
     """Label the first export's unlabelled operations, leaving the later ones be.
 
     Each operation gets its payee's category.
@@ -134,7 +140,7 @@ def _seed_labels(session: Session, account: Account) -> int:
     return labelled
 
 
-def _seed_imports(session: Session, account: Account) -> int:
+def _seed_imports(session: Session, account: AccountModel) -> int:
     """Import overlapping fake exports into an account that has none yet."""
     import_service = ImportService(session)
     if account.account_number is None or import_service.list_for_account(account.id):

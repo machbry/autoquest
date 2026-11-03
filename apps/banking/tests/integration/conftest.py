@@ -1,4 +1,4 @@
-"""Fixtures for the account page and admin tests: accounts, operations, categories."""
+"""Fixtures for the Import page and admin tests: accounts, operations, categories."""
 
 from datetime import date
 from decimal import Decimal
@@ -15,14 +15,29 @@ from banking.domains.account import AccountType
 
 
 @pytest.fixture
+def admin(client):
+    """The client, holding the admin's CSRF cookie; posts send the token back."""
+    client.get("/admin/operations/list")
+    token = client.cookies["starlette_admin_csrftoken"]
+    client.headers["X-CSRFToken"] = token
+    return client
+
+
+@pytest.fixture
 def add_account(session, bank):
     """Add an account to a bank (the test bank by default); return it."""
 
-    def make(name="Label account", target_bank=bank):
+    def make(
+        name="Label account",
+        target_bank=bank,
+        account_number=None,
+        account_type=AccountType.CURRENT,
+    ):
         account = AccountModel(
             name=name,
             bank=target_bank,
-            type=AccountType.CURRENT,
+            type=account_type,
+            account_number=account_number,
             opened_on=date(2020, 1, 15),
         )
         session.add(account)

@@ -1,26 +1,39 @@
 {% extends "base.html" %}
 {% from "macros.html" import error, freshness_label with context %}
-{% block title %}{{ account.name }} · Banking{% endblock %}
+{% block title %}{{ account.name ~ " · " if account }}Import · Banking{% endblock %}
 {% block content %}
-<h1>{{ account.name }}</h1>
+<h1>Import</h1>
+{% if accounts %}
+<table>
+  <thead>
+    <tr><th>Account</th><th>Status</th><th>Data</th></tr>
+  </thead>
+  <tbody>
+    {% for item, item_freshness in accounts %}
+    <tr>
+      <td><a href="/imports?account_id={{ item.id }}"{% if account and item.id == account.id %} aria-current="page"{% endif %}>{{ item.name }}</a></td>
+      <td>{% if item.closed_on %}<span class="muted">Closed on {{ item.closed_on }}</span>{% else %}Open{% endif %}</td>
+      <td>{{ freshness_label(item_freshness) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No account yet: <a href="/admin/accounts/create">declare one</a>.</p>
+{% endif %}
+
+{% if account %}
+<h2>{{ account.name }}</h2>
+<p class="muted">{{ account.bank.name }} · {{ freshness_label(freshness) }} · <a href="/admin/accounts/detail?pk={{ account.id }}">Account in the admin</a></p>
 {% if summary %}
 <section class="summary">
-  <h2>File imported</h2>
+  <h3>File imported</h3>
   <p>{{ summary.rows_in_file }} rows in the file: {{ summary.rows_new }} new, {{ summary.rows_known }} already known.
   {% if summary.first_operation_on %}Operations from {{ summary.first_operation_on }} to {{ summary.last_operation_on }}.{% endif %}</p>
 </section>
 {% endif %}
-<dl>
-  <dt>Bank</dt><dd>{{ account.bank.name }}</dd>
-  <dt>Type</dt><dd>{{ type_labels[account.type] }}</dd>
-  <dt>Account number</dt><dd>{{ account.account_number or "—" }}</dd>
-  <dt>Opened on</dt><dd>{{ account.opened_on }}</dd>
-  {% if account.closed_on %}<dt>Closed on</dt><dd>{{ account.closed_on }}</dd>{% endif %}
-  <dt>Data</dt><dd>{{ freshness_label(freshness) }}</dd>
-</dl>
-<p><a href="/accounts/{{ account.id }}/edit">Edit</a></p>
 
-<h2>Import operations from a file</h2>
+<h3>Import operations from a file</h3>
 <p class="muted">A La Banque Postale CSV file, 1 MB at most. Operations already stored are skipped.</p>
 <form method="post" action="/accounts/{{ account.id }}/imports" enctype="multipart/form-data">
   <input type="file" name="file" accept=".csv" required>
@@ -28,7 +41,7 @@
   <button type="submit">Import</button>
 </form>
 
-<h2>Operations by month</h2>
+<h3>Operations by month</h3>
 {% if recap %}
 <table>
   <thead><tr><th>Month</th><th class="num">Operations</th><th class="num">Labelled</th><th class="num">Unlabelled</th></tr></thead>
@@ -47,7 +60,7 @@
 <p class="muted">No operation yet.</p>
 {% endif %}
 
-<h2>Imported files</h2>
+<h3>Imported files</h3>
 {% if imports %}
 <table>
   <thead><tr><th>File date</th><th>Operations from</th><th>to</th><th class="num">Rows in file</th><th class="num">New</th></tr></thead>
@@ -66,20 +79,5 @@
 {% else %}
 <p class="muted">No file imported yet.</p>
 {% endif %}
-
-{% if not account.closed_on %}
-<h2>Close this account</h2>
-<p class="muted">Its history stays visible. An account can't be reopened.</p>
-<form method="post" action="/accounts/{{ account.id }}/close">
-  <label>Closed on <input type="date" name="closed_on" value="{{ closed_on }}" required></label>
-  {{ error("closed_on") }}
-  <button type="submit">Close account</button>
-</form>
 {% endif %}
-<h2>Delete this account</h2>
-<p class="muted">Deletes the account and all its history. To keep the history, close it instead.</p>
-<form method="post" action="/accounts/{{ account.id }}/delete"
-      onsubmit="return confirm('Delete this account and all its history? This cannot be undone.')">
-  <button type="submit">Delete account</button>
-</form>
 {% endblock %}

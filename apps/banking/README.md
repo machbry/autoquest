@@ -30,9 +30,10 @@ only): `docker compose down -v`.
 ## Interfaces
 | Interface | Description |
 | --- | --- |
-| `GET /accounts` | Accounts list with data freshness (`GET /` redirects to it); create, edit, close or delete accounts from there. The account page shows a monthly recap (operations, labelled, unlabelled), each month linking to its operations in the admin |
-| `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the account page, which then shows its summary and imported files |
+| `GET /imports` | Import page (`GET /` redirects to it): every account with its data freshness. `?account_id=` shows that account's upload form, monthly recap (operations, labelled, unlabelled, each month linking to its operations in the admin) and imported files |
+| `POST /accounts/{id}/imports` | Import operations from a La Banque Postale CSV file (multipart `file`, 1 MB max) from the Import page, which then shows its summary |
 | `GET /admin/operations/list` | Operations table ([starlette-admin](https://jowilf.github.io/starlette-admin/)): search, filters (`filter` in the address, e.g. `account__in=1 AND category__is_null`), sort. Set a category in its cell, or on the selected rows (or every row the filters keep) with *Set category* and *Remove category*; the bank's fields are read-only |
+| `GET /admin/accounts/list` | Accounts: declare, edit, *Close* (keeps the history; no reopening), or delete with all their history |
 | `GET /admin/categories/list` | Categories: create, rename, *Merge into…* another, or delete one no operation uses |
 | `GET /admin/banks/list` | Banks: create, rename, or delete one no account uses |
 | `GET /healthz` | `{"status": "ok"}` when the app and its database answer |
@@ -40,7 +41,8 @@ only): `docker compose down -v`.
 
 Routes and code follow the [CRUD conventions](../../CLAUDE.md#crud-conventions), except
 the admin (`src/banking/admin`): built from the SQLAlchemy models, it writes the tables
-directly, and the database constraints hold the invariants.
+directly, and the database constraints hold the invariants; *Close* reuses the account
+service.
 New migration, generated from `databases/models` (review it before committing):
 `uv run alembic -c apps/banking/alembic.ini revision --autogenerate -m "<Summary.>"`.
 

@@ -1,6 +1,5 @@
 """Pages that several routers render, with the services they show."""
 
-from datetime import date
 from typing import Annotated, Any
 
 from fastapi import Depends, Request
@@ -14,10 +13,10 @@ from banking.api.dependencies.services import (
 from banking.api.rendering import render
 
 
-class AccountPage:
-    """An account's page: details, freshness, imports and the monthly recap.
+class ImportPage:
+    """The Import page: every account's freshness, and the chosen account's imports.
 
-    The account routes and the import route both render it, with their own errors.
+    The page route and the upload route both render it, the latter with its errors.
     """
 
     def __init__(
@@ -33,30 +32,34 @@ class AccountPage:
     def render(
         self,
         request: Request,
-        account_id: int,
+        account_id: int | None = None,
         status_code: int = 200,
         summary_id: int | None = None,
         **context: Any,
     ) -> HTMLResponse:
-        """Render the page; `summary_id` is an import of the account to summarize.
+        """Render the page; with `account_id`, that account's upload form and history.
+
+        `summary_id` is an import of the account to summarize.
 
         Raises:
             NotFoundError: no such account.
         """
-        account = self.accounts.get(account_id)
-        history = self.imports.list_for_account(account_id)
-        context.setdefault("closed_on", date.today().isoformat())
+        if account_id is not None:
+            history = self.imports.list_for_account(account_id)
+            context |= {
+                "account": self.accounts.get(account_id),
+                "freshness": self.accounts.get_freshness(account_id),
+                "imports": history,
+                "summary": next((i for i in history if i.id == summary_id), None),
+                "recap": self.operations.recap(account_id),
+            }
         return render(
             request,
-            "accounts/detail.html",
+            "imports/list.html",
             status_code,
-            account=account,
-            freshness=self.accounts.get_freshness(account_id),
-            imports=history,
-            summary=next((item for item in history if item.id == summary_id), None),
-            recap=self.operations.recap(account_id),
+            accounts=self.accounts.list_with_freshness(),
             **context,
         )
 
 
-AccountPageDep = Annotated[AccountPage, Depends()]
+ImportPageDep = Annotated[ImportPage, Depends()]

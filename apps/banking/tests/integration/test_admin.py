@@ -11,15 +11,6 @@ from sqlalchemy import select
 from banking.databases.models import BankModel, CategoryModel, OperationModel
 
 
-@pytest.fixture
-def admin(client):
-    """The client, holding the admin's CSRF cookie; posts send the token back."""
-    client.get("/admin/operations/list")
-    token = client.cookies["starlette_admin_csrftoken"]
-    client.headers["X-CSRFToken"] = token
-    return client
-
-
 def action(admin, view, name, data=None, pks=(), filters=None):
     """Run a bulk action on rows (by id), or on every row the filters keep."""
     params = {"name": name}
