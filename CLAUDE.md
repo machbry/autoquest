@@ -60,6 +60,7 @@ autoquest/
 │   └── shared/               # resources shared by apps (budgets, IAM)
 ├── scripts/                  # dev tooling (seeding, helpers)
 │   └── architecture/         # architecture diagram renderer and shared helpers
+├── tests/                    # repo-wide rule checks
 ├── .github/workflows/        # CI/CD
 ├── docker-compose.yml        # full local stack
 ├── pyproject.toml            # uv workspace root and tool config
@@ -195,7 +196,8 @@ another type when more precise); the scope label is the commit scope (`core` bec
 `ci` or `repo`).
 
 ## Testing
-pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
+pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`; repo-wide rule checks in
+the root `tests/`.
 
 - **Unit tests** where they add value:
   - logic with McCabe complexity ≥ 5 (ruff `C901` hard limit: 10);
@@ -243,6 +245,7 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
   dependency scan (`uv audit`).
 - **On merge to `main`:** build images, `terraform apply`, deploy to `prd`.
 - **Weekly:** Dependabot update PRs (`.github/dependabot.yml`).
+- **Monthly:** rules audit (`.github/workflows/rules-audit.yml`), see Rule enforcement.
 - **Manual steps** (the only ones):
   - running `infra/bootstrap` once (project, state bucket, CI identity);
   - creating the Neon and MotherDuck accounts and their first API tokens: neither provider
@@ -250,7 +253,9 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
   - GitHub repository settings (ruleset on `main`, labels; under Settings → Advanced
     Security: secret protection with push protection, Dependabot alerts and security
     updates), set in the GitHub UI: managing them as code needs a long-lived GitHub token,
-    not worth the risk for a solo repo.
+    not worth the risk for a solo repo;
+  - the `CLAUDE_CODE_OAUTH_TOKEN` Actions secret of the rules audit, renewed yearly:
+    `claude setup-token` issues a subscription token interactively only.
 
 ## Local development
 - Prerequisites: Docker, uv (and Terraform for infra work).
@@ -274,6 +279,26 @@ pytest. Tests live in `apps/<app>/tests/{unit,integration,e2e}`.
   component change. No hand-drawn (Mermaid, ASCII) architecture diagrams. The
   `architecture-diagram` skill holds the conventions.
 - `CLAUDE.md` holds development guidelines only.
+
+## Rule enforcement
+A rule a program can check is a test or a CI check, run on every PR; add one when a rule
+becomes checkable. The `rules-audit` skill reviews the code against every other rule,
+monthly in CI or on demand, and opens issues for the violations.
+
+| Rule | Checked by |
+| --- | --- |
+| Format, lint rule sets, complexity, docstrings, type hints | pre-commit (ruff, mypy) |
+| Branch, PR title and commit names | `.github/workflows/governance.yml` |
+| Coverage ≥ 80% | `fail_under` in `pyproject.toml` |
+| Dependency vulnerabilities | `uv audit` in `.github/workflows/ci.yml` |
+| App layout, `.env.example` committed, `.env` gitignored | `tests/test_repo_rules.py` |
+| Apps never import each other; config read in `config.py` only | `tests/test_repo_rules.py` |
+| Action SHAs and image tags pinned, workflow permissions declared | `tests/test_repo_rules.py` |
+| No AI in production (no LLM dependency in apps) | `tests/test_repo_rules.py` |
+| Layer dependencies | `apps/<app>/tests/unit/test_layers.py` |
+| Environment variables prefixed with the app name | `apps/<app>/tests/unit/test_config.py` |
+| banking: SQL naming, constraint names, money types, dates and timestamps | `apps/banking/tests/unit/test_schema_rules.py` |
+| banking: no `float`, no descriptions, amounts or account numbers in logs | `apps/banking/tests/unit/test_code_rules.py` |
 
 ## Definition of done
 - [ ] Required tests written (unit where relevant, integration, e2e for new apps, regression
