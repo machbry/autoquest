@@ -32,13 +32,15 @@ class OperationModel(Timestamps, Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # The account, date, description and amount are never edited: the
+    # `operations_bank_fields_unchanged` trigger refuses it (a CHECK can't see the old
+    # values). Later corrections get their own columns, so they can't break duplicate
+    # detection.
     account_id: Mapped[int] = mapped_column(
         ForeignKey("accounts.id", ondelete="CASCADE")
     )
     import_id: Mapped[int] = mapped_column(ForeignKey("imports.id", ondelete="CASCADE"))
     operation_date: Mapped[date]
-    # The bank's text, never edited: later corrections get their own columns, so they
-    # can't break duplicate detection.
     description: Mapped[str] = mapped_column(String(200))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     occurrence: Mapped[int]

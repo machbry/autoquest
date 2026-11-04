@@ -6,7 +6,7 @@ from sqlalchemy import CheckConstraint, Enum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from banking.databases.models.bank import BankModel
-from banking.databases.models.base import Base, Timestamps
+from banking.databases.models.base import TRIMMED_NAME, Base, Timestamps
 from banking.domains.account import AccountType
 
 
@@ -16,6 +16,11 @@ class AccountModel(Timestamps, Base):
     __tablename__ = "accounts"
     __table_args__ = (
         CheckConstraint("closed_on >= opened_on", name="closed_after_opened"),
+        CheckConstraint(TRIMMED_NAME, name="name_trimmed"),
+        # Imports match on the number, so it must be stored as they normalize it.
+        CheckConstraint(
+            "account_number ~ '^[A-Z0-9]+$'", name="account_number_normalized"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -35,6 +40,8 @@ class AccountModel(Timestamps, Base):
     # Optional: some accounts (life insurance) have none.
     account_number: Mapped[str | None] = mapped_column(String(34), unique=True)
     opened_on: Mapped[date]
+    # Can't go back to None: the `accounts_stay_closed` trigger refuses it (a CHECK
+    # can't see the old value).
     closed_on: Mapped[date | None]
 
     # One-way on purpose: with a BankModel.accounts collection, deleting a bank would

@@ -188,13 +188,20 @@ def test_a_duplicate_name_is_shown_on_its_field(admin, groceries):
 
 
 @pytest.mark.parametrize(
-    ("name", "error"),
-    [("   ", "Enter a name."), ("x" * 51, "50 characters at most.")],
+    ("view", "name", "error"),
+    [
+        ("categories", "   ", "Enter a name."),
+        ("banks", "   ", "Enter a name."),
+        ("categories", "x" * 51, "50 characters at most."),
+        ("banks", "x" * 101, "100 characters at most."),
+        ("categories", "a\x00b", "Invalid character."),
+        ("banks", "a\x00b", "Invalid character."),
+    ],
 )
-def test_a_blank_or_too_long_name_is_refused_on_its_field(admin, name, error):
+def test_an_invalid_name_is_refused_on_its_field(admin, view, name, error):
     # Regression: the admin stored blank names, and failed on too long ones.
     response = admin.post(
-        "/admin/categories/create",
+        f"/admin/{view}/create",
         data={"csrftoken": admin.headers["X-CSRFToken"], "name": name},
     )
 
