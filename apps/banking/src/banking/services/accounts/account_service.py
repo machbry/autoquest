@@ -17,7 +17,6 @@ class AccountService:
 
     def __init__(self, session: Session) -> None:
         """Work within this session."""
-        self.session = session
         self.accounts = AccountRepository(session)
         self.imports = ImportRepository(session)
 

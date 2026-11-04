@@ -12,7 +12,7 @@ from faker import Faker
 from banking.domains.operation import OperationFields
 
 # A small pool of payees, so descriptions recur as in a real account: the seed labels
-# them, and "select similar" in the operations table finds the next ones.
+# them.
 PAYEES = (
     ("ACHAT CB", "SUPERMARCHE DU CENTRE"),
     ("ACHAT CB", "BOULANGERIE DU PORT"),
@@ -24,8 +24,6 @@ PAYEES = (
     ("PRLV SEPA", "TRANSPORTS URBAINS"),
     ("VIREMENT DE", "EMPLOYEUR SA"),
 )
-# Card payments end with noise the "same as last time" rule must ignore.
-CARD_KINDS = ("CB", "ACHAT CB")
 
 
 def build_export(
@@ -62,13 +60,10 @@ def fake_operations(fake: Faker, first: date, last: date) -> list[OperationField
         for _ in range(fake.random_int(0, 5)):
             day = first + timedelta(days=offset)
             kind, payee = fake.random_element(PAYEES)
-            description = f"{kind} {payee}"
-            if kind in CARD_KINDS:
-                description += f" {day:%d.%m.%y} CARTE NUMERO 123"
             operations.append(
                 OperationFields(
                     operation_date=day,
-                    description=description,
+                    description=f"{kind} {payee}",
                     amount=Decimal(fake.random_int(-15000, 5000)) / 100,
                 )
             )

@@ -2,9 +2,8 @@
 
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
-from typing import Any, cast
+from typing import Any
 
-from sqlalchemy import CursorResult, Executable
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -52,31 +51,6 @@ class Repository[M: Base, D]:
         self._flush()
         return self.to_domain(row)
 
-    def update(self, item_id: int, values: Mapping[str, Any]) -> D | None:
-        """Change an item's values; None if there is no such item.
-
-        Raises:
-            ConstraintViolation: the values break a named constraint.
-        """
-        if (row := self.session.get(self.model, item_id)) is None:
-            return None
-        for column, value in values.items():
-            setattr(row, column, value)
-        self._flush()
-        return self.to_domain(row)
-
-    def delete(self, item_id: int) -> bool:
-        """Delete an item; False if there is no such item.
-
-        Raises:
-            ConstraintViolation: a foreign key refuses the delete.
-        """
-        if (row := self.session.get(self.model, item_id)) is None:
-            return False
-        self.session.delete(row)
-        self._flush()
-        return True
-
     def _flush(self) -> None:
         """Send pending writes.
 
@@ -85,16 +59,6 @@ class Repository[M: Base, D]:
         """
         with self._constraints():
             self.session.flush()
-
-    def _execute(self, statement: Executable) -> CursorResult[Any]:
-        """Run a bulk write (INSERT, UPDATE, DELETE).
-
-        Raises:
-            ConstraintViolation: the write breaks a named constraint.
-        """
-        with self._constraints():
-            # A write returns a CursorResult, though `execute` is typed as `Result`.
-            return cast(CursorResult[Any], self.session.execute(statement))
 
     @contextmanager
     def _constraints(self) -> Iterator[None]:
