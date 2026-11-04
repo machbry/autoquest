@@ -21,4 +21,6 @@ where stated.
 - **No MotherDuck:** analytics run with dbt-postgres on the Neon database; the volume
   (~1,100 operations a year) doesn't justify a second store. Revisit if it grows.
 - **No Firestore.**
+- **No htmx:** app pages are plain forms with no JavaScript, see
+  [Front end](docs/architecture.md#front-end).
 - **Raw statement files are never stored:** only parsed operations and import metadata.
