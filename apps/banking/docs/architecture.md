@@ -31,7 +31,7 @@ mark planned components. Source: [architecture.py](architecture.py).
 
 ## App data vs analytics
 - **SQLAlchemy + Alembic own the `banking` schema**: the tables the app writes (accounts,
-  imports, operations, categories, labels). Only Alembic migrations change them.
+  imports, operations, categories). Only Alembic migrations change them.
 - **dbt owns the `analytics` schema**: it reads the `banking` tables as sources, never writes
   them, and builds the analysis models. Alembic never touches `analytics`.
 - **The web app reads `analytics`** to show the analysis pages.
