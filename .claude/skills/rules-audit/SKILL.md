@@ -14,19 +14,13 @@ findings and writes the issues they want with `/write-spec`.
 - Glob every `CLAUDE.md` (root and `apps/*/`), and read each one with the files it imports
   (`@path` lines).
 - The root `CLAUDE.md` **Rule enforcement** section lists the rules checked by tests and
-  tools. Skip them: CI already enforces them. Audit everything else.
+  tools. Skip what those checks cover: CI already enforces it. Audit everything else,
+  including the part of a rule a check leaves out.
 
 ## 2. Review the code
-Scope: the whole repo, or only `apps/<app>/` when an app is given. Read the code, tests,
-docs, workflows and Docker/Terraform files the rules apply to. Typical judgement rules:
-- comments explain *why*, not *what*; docs are concise and match the code;
-- no speculative abstractions, dead code or premature generalization;
-- tests through public interfaces, not mirroring the implementation; required tests exist
-  (integration per feature, e2e per app, regression per bug fix);
-- layer responsibilities and CRUD naming conventions (beyond `test_layers.py`);
-- invariants held by database constraints; services translate repository errors;
-- logs leaking personal or banking data; personal data stored, collected or committed;
-- architecture docs (`docs/architecture.*`) in line with the components.
+Scope: the whole repo, or only `apps/<app>/` when an app is given. Go through the
+remaining rules one by one, not a sample, and read the code, tests, docs, workflows and
+Docker/Terraform files each one applies to.
 
 Report only clear violations you can point to, not style preferences. Group them by rule
 and scope (one app, or `core` for repo-wide files). For each group keep:
