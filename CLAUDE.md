@@ -138,6 +138,11 @@ HTML routes (forms can only `GET` and `POST`):
 
 - Only the routes a resource needs exist. Without a detail page, writes redirect to the
   list. A single-field create form may sit on the list page instead of `/new`.
+- A resource that belongs to another (an import to its account) is created under its
+  parent: `POST /accounts/{id}/imports`, handler `create_import`, service call
+  `create(account_id, ...)` on the child's service. The child's other routes keep their
+  own paths (`GET /imports?account_id=`), so its router has no prefix and spells out
+  full paths.
 - `GET /` redirects to the app's main list.
 - Errors: invalid input → the form again with field errors, 422 (`InvalidError`); unknown
   id → 404 (`NotFoundError`); conflict with the current state → 409 (`ConflictError`).
