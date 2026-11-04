@@ -18,9 +18,9 @@ from banking.databases.models import (
     OperationModel,
 )
 
-# Its error logs quote the database's messages, which hold the values at fault
-# (names, descriptions): the app logs what it needs itself.
-logging.getLogger("starlette_admin").propagate = False
+# Its logs quote searches, filters and the database's messages, which hold the values
+# at fault (names, descriptions): off at every level, the app logs what it needs itself.
+logging.getLogger("starlette_admin").setLevel(logging.CRITICAL + 1)
 
 
 def create_admin(sessions: sessionmaker[Session], secret_key: str) -> Admin:

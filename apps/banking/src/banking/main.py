@@ -2,6 +2,7 @@
 
 import logging
 from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
@@ -20,6 +21,19 @@ logger = logging.getLogger(__name__)
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 # No header: not a browser (tests, scripts). "none": typed or bookmarked by the user.
 ALLOWED_FETCH_SITES = {None, "same-origin", "none"}
+
+
+def hide_private_request_data(record: logging.LogRecord) -> bool:
+    """Keep only method, path and status in uvicorn's access log.
+
+    Searches and filters put descriptions and amounts in the query.
+    """
+    _, method, path, version, status = cast(tuple[Any, ...], record.args)
+    record.args = ("-", method, path.partition("?")[0], version, status)
+    return True
+
+
+logging.getLogger("uvicorn.access").addFilter(hide_private_request_data)
 
 
 def create_app(admin_sessions: sessionmaker[Session] | None = None) -> FastAPI:
