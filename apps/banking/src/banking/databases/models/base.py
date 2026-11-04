@@ -16,6 +16,14 @@ NAMING_CONVENTION = {
     "ck": "ck_%(table_name)s_%(constraint_name)s",
 }
 
+# What Python's `str.strip()` removes. Spelled out because Postgres' `\s` depends on the
+# locale, and misses the non-breaking space under en_US.
+WHITESPACE = (
+    r"[\u0009-\u000D\u001C- \u0085   -    "
+    r" 　]"
+)
+TRIMMED_NAME = f"name <> '' AND name !~ '^{WHITESPACE}|{WHITESPACE}$'"
+
 
 class Base(DeclarativeBase):
     """Base class of every banking model."""

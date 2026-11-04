@@ -40,14 +40,19 @@ mark planned components. Source: [architecture.py](architecture.py).
 ## Data model
 Defined in [databases/models](../src/banking/databases/models/). Constraints are named
 `uq_`/`ck_`/`fk_` + table + column/rule, so the services can map a violation to the field
-at fault.
+at fault. Rules on a change need the old row, which a `CHECK` can't see: they are
+triggers, written in the migrations only (autogenerate doesn't see them), that raise a
+named constraint like any other.
 
+- **Names** (`banks`, `categories`, `accounts`): `CHECK` non-blank and trimmed of what
+  Python's `strip()` removes, spelled out because `\s` depends on the database's locale.
 - **`banks`**: `name` (unique). Managed by the user; a bank used by an account can't be
   deleted (`accounts.bank_id` foreign key, `ON DELETE RESTRICT`).
 - **`accounts`**: `name` (unique), `bank_id`, `type` (fixed list, `CHECK`: the analysis
-  relies on it), `account_number` (unique, optional), `opened_on`, `closed_on`
-  (`CHECK closed_on >= opened_on`). Closing keeps the account and its history; there is no
-  reopen. Deleting removes the account and, through `ON DELETE CASCADE`, its history.
+  relies on it), `account_number` (unique, optional, `CHECK` normalized: imports match on
+  it), `opened_on`, `closed_on` (`CHECK closed_on >= opened_on`). Closing keeps the account
+  and its history; a trigger refuses reopening (`ck_accounts_stay_closed`). Deleting
+  removes the account and, through `ON DELETE CASCADE`, its history.
 - **`imports`**: one row per imported export file (the file itself is never stored):
   `export_date`, header `balance`, dates covered, `rows_in_file`, `rows_new`. Freshness
   counts days since the account's latest `export_date`: warning at 61, alert at 76.
@@ -56,7 +61,8 @@ at fault.
   operations are real, so `occurrence` numbers the copies: unique
   `(account_id, operation_date, description, amount, occurrence)`. An import adds the
   copies beyond those stored, with the account row locked (`FOR UPDATE`), in one
-  transaction.
+  transaction. A trigger refuses editing the account, date, description or amount
+  (`ck_operations_bank_fields_unchanged`).
 - Both reference `accounts` with `ON DELETE CASCADE`.
 - **`categories`**: `name` (unique): the type of an expense or income.
   Renaming keeps the labels (operations hold the id). A category in use can't be deleted

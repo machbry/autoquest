@@ -9,8 +9,9 @@ where stated.
 - **Money:** `Decimal` in Python, `NUMERIC` in Postgres, never `float`.
 - **Business dates** (operation, export, opened/closed) are `DATE` with no timezone. The root
   "stored in UTC" rule applies to `created_at`/`updated_at` only.
-- **Invariants live in the database** (constraints, foreign keys): several components write
-  to the tables (web app, admin, later the MCP server and the auto-labelling job).
+- **Invariants live in the database** (constraints, foreign keys, triggers for rules on a
+  change): several components write to the tables (web app, admin, later the MCP server and
+  the auto-labelling job).
 - **Logging, stricter than root:** log ids, counts and line numbers only. Never descriptions,
   amounts or account numbers.
 - **Persistence:** SQLAlchemy models and Alembic migrations own the `banking` schema; dbt owns
