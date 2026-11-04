@@ -99,13 +99,21 @@ def test_an_operations_category_can_change(
     assert category_of(operation) is None
 
 
-def test_a_repository_names_the_rule_a_refused_edit_broke(session, add_operation):
+def test_a_repository_names_the_rule_a_refused_write_broke(session, add_operation):
     operation = add_operation(date(2026, 10, 1))
+    copy = {
+        "account_id": operation.account_id,
+        "import_id": operation.import_id,
+        "operation_date": operation.operation_date,
+        "description": operation.description,
+        "amount": operation.amount,
+        "occurrence": operation.occurrence,
+    }
 
     with pytest.raises(ConstraintViolation) as refused:
-        OperationRepository(session).update(operation.id, {"amount": Decimal("1.00")})
+        OperationRepository(session).create(copy)
 
-    assert refused.value.constraint == "ck_operations_bank_fields_unchanged"
+    assert refused.value.constraint == "uq_operations_occurrence"
 
 
 def test_a_closed_account_cant_be_reopened(session, account):
