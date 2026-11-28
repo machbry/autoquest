@@ -20,7 +20,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       # Values come in through env, never ${{ }} in the script: they are user input.
-      # Dependabot names its own branches; its titles and commits are still checked.
+      # Dependabot names its own branches and writes its own summaries ("Bump <dependency>
+      # from <old> to <new>", too long with a URL as name): only their format is checked.
       # The PR author, not github.actor, so a re-run by someone else keeps the exemption.
       - name: Branch name
         if: github.event.pull_request.user.login != 'dependabot[bot]'
@@ -37,13 +38,14 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           status=0
           check() {
             local summary="${1#*: }"
             if [[ ! "$1" =~ ^($TYPES)\([a-z0-9-]+\)!?:\ [^\ ] ]]; then
               echo "::error::'$1' is not <type>(<scope>): <summary>"; status=1
-            elif (( ${#summary} > 72 )); then
+            elif [[ "$AUTHOR" != 'dependabot[bot]' ]] && (( ${#summary} > 72 )); then
               echo "::error::'$1': summary longer than 72 characters"; status=1
             elif [[ "$summary" == *. ]]; then
               echo "::error::'$1': summary ends with a period"; status=1
