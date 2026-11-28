@@ -187,8 +187,9 @@ HTML routes (forms can only `GET` and `POST`):
   - Summary: imperative, at most 72 characters, no final period. Mark breaking changes with `!`.
   - Every commit on a branch follows this format, since it lands in `main` history as is.
     The PR title uses it too.
-- **Dependabot PRs** keep Dependabot's branch names (exempt from the branch check); their
-  titles and commits use `build(repo)`, or `ci(ci)` for GitHub Actions.
+- **Dependabot PRs** keep Dependabot's branch names (exempt from the branch check) and
+  summaries (exempt from the 72-character limit); their titles and commits use
+  `build(repo)`, or `ci(ci)` for GitHub Actions.
 
 ## Issues
 Every issue gets exactly one scope label and one type label, so issues can be filtered by either:
