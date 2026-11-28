@@ -1,8 +1,11 @@
 # Build from the repo root (the uv workspace): docker build -f apps/banking/Dockerfile .
 # The default (last) target is the prd image; `--target dev` adds the dev dependency group
 # (Faker, for the local seed service).
+# A stage, not COPY --from=<image>: Dependabot and the pin test only read FROM lines.
+FROM ghcr.io/astral-sh/uv:0.13.7 AS uv
+
 FROM python:3.13-slim AS build
-COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /bin/uv
+COPY --from=uv /uv /bin/uv
 # The venv path must match the final image: its scripts hard-code it.
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never \
     UV_PROJECT_ENVIRONMENT=/app/.venv
